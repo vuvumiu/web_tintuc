@@ -9,6 +9,6 @@ class System extends Model
 {
     protected $table = 'system';
     protected $primaryKey = 'RowID';
-    // Nếu cần factories, bạn thêm use HasFactory
+    protected $fillable = ['Code', 'Description', 'logo_type', 'Status'];
     use HasFactory;
 }

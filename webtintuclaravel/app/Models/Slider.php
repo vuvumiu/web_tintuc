@@ -8,4 +8,6 @@ class Slider extends Model
 {
     protected $table = 'slider';
     protected $primaryKey = 'RowID';
+
+    public $timestamps = false;
 }

@@ -2,23 +2,37 @@
 
 namespace App\Http\Controllers;
 
-use Intervention\Image\Facades\Image;
-
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\UserLevel;
-use App\Models\System;
-use App\Models\Page;
-use App\Models\Social;
-use App\Models\Newsletter;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use App\Helpers\NotificationHelper;
+use App\Services\NotificationService;
 use App\Models\Contact;
+use App\Models\ContactReply;
+use App\Models\FeaturedNews;
 use App\Models\News;
 use App\Models\NewsCategory;
+use App\Models\Newsletter;
+use App\Models\Notification;
+use App\Models\NewsViewStat;
+use App\Models\NewsRating;
+use App\Models\NewsTicker;
+use App\Models\Page;
 use App\Models\Slider;
-
+use App\Models\Social;
+use App\Models\Ad;
+use App\Models\System;
+use App\Models\Tag;
+use App\Models\User;
+use App\Models\UserLevel;
+use App\Models\NewsSchedule;
+use Intervention\Image\Facades\Image;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BackController extends Controller
 {
@@ -30,8 +44,840 @@ class BackController extends Controller
     public function home()
     {
         $user = Auth::user();
-        return view('back.home.home');
+
+        $stats = [
+            'news_total' => News::count(),
+            'news_published' => News::where('Status', 1)->count(),
+            'news_draft' => NewsSchedule::where('status', 'draft')->count(),
+            'news_pending' => NewsSchedule::where('status', 'pending')->count(),
+            'news_scheduled' => NewsSchedule::where('status', 'scheduled')->count(),
+            'comment_total' => \App\Models\NewsComment::count(),
+            'comment_pending' => \App\Models\NewsComment::where('is_active', false)->count(),
+            'contacts_new' => Contact::query()->unread()->count(),
+            'members_total' => User::query()->regularAccounts()->count(),
+            'newsletter_total' => Newsletter::count(),
+            'notif_unread' => Notification::unreadCount($user->id),
+        ];
+
+        $weeklyViews = $this->getWeeklyViews();
+        $recentActivities = $this->getRecentActivities();
+        $categoryStats = $this->getCategoryStats();
+        $topAuthors = $this->getTopAuthors();
+
+        $topRatedArticles = $this->getTopRatedArticles(5);
+        $lowestRatedArticles = $this->getLowestRatedArticles(5);
+        $mostProlificAuthors = $this->getMostProlificAuthors(5);
+        $authorsTopRated = $this->getAuthorsByHighestRatingRatio(5);
+        $authorsLowestRated = $this->getAuthorsByLowestRatingRatio(5);
+        $ratingOverview = $this->getRatingOverview();
+        $authorPerformance = $this->getAuthorPerformanceTable(12);
+        $topViewedArticles = $this->getTopViewedArticles(10);
+        $categoryRatingStats = $this->getCategoryRatingStats();
+        $statusDistribution = $this->getDashboardStatusDistribution();
+        $ratingTrend = $this->getRatingTrend();
+        $chartSeries = $this->getDashboardChartSeries();
+        $dailySeries = $this->getDashboardDailySeries();
+
+        $stats['rating_total'] = (int) ($ratingOverview['total'] ?? 0);
+        $stats['rating_average'] = (float) ($ratingOverview['average'] ?? 0);
+        $stats['rating_positive'] = (int) ($ratingOverview['positive_total'] ?? 0);
+        $stats['rating_negative'] = (int) ($ratingOverview['negative_total'] ?? 0);
+        $stats['featured_total'] = (int) ($statusDistribution['featured'] ?? 0);
+        $stats['hot_total'] = (int) ($statusDistribution['hot'] ?? 0);
+
+        $featuredIds = FeaturedNews::query()->active()->pluck('news_id')->all();
+
+        $latestNews = News::with(['author', 'category', 'latestSchedule'])
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(function (News $news) use ($featuredIds) {
+                $scheduleStatus = $news->latestSchedule?->status;
+
+                if (in_array($news->RowID, $featuredIds, true) && (int) $news->Status === 1) {
+                    $news->dashboard_status = 'featured';
+                } elseif ((int) $news->Status === 1) {
+                    $news->dashboard_status = 'published';
+                } elseif ($scheduleStatus === NewsSchedule::STATUS_PENDING) {
+                    $news->dashboard_status = 'pending';
+                } else {
+                    $news->dashboard_status = 'draft';
+                }
+
+                return $news;
+            });
+
+        return view('back.home.home', compact(
+            'stats',
+            'weeklyViews',
+            'recentActivities',
+            'categoryStats',
+            'topAuthors',
+            'latestNews',
+            'topRatedArticles',
+            'lowestRatedArticles',
+            'mostProlificAuthors',
+            'authorsTopRated',
+            'authorsLowestRated',
+            'ratingOverview',
+            'authorPerformance',
+            'topViewedArticles',
+            'categoryRatingStats',
+            'statusDistribution',
+            'ratingTrend',
+            'chartSeries',
+            'dailySeries'
+        ));
     }
+
+    public function api_stats()
+    {
+        $ratingOverview = $this->getRatingOverview();
+        $statusDistribution = $this->getDashboardStatusDistribution();
+
+        return response()->json([
+            'success' => true,
+            'stats' => [
+                'news_total' => News::count(),
+                'news_published' => News::query()->where('Status', 1)->count(),
+                'news_pending' => NewsSchedule::query()->where('status', NewsSchedule::STATUS_PENDING)->count(),
+                'members_total' => User::query()->regularAccounts()->count(),
+                'comments_total' => \App\Models\NewsComment::count(),
+                'contacts_new' => Contact::query()->unread()->count(),
+                'newsletter_total' => Newsletter::count(),
+                'rating_average' => (float) ($ratingOverview['average'] ?? 0),
+                'rating_total' => (int) ($ratingOverview['total'] ?? 0),
+                'rating_positive' => (int) ($ratingOverview['positive_total'] ?? 0),
+                'rating_negative' => (int) ($ratingOverview['negative_total'] ?? 0),
+            ],
+            'status_distribution' => $statusDistribution,
+            'chart_series' => $this->getDashboardChartSeries(),
+        ]);
+    }
+
+    public function api_notifications()
+    {
+        $userId = (int) Auth::id();
+        $notifications = Notification::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'count' => Notification::unreadCount($userId),
+            'notifications' => $notifications->map(function (Notification $notification) {
+                return [
+                    'id' => (int) $notification->id,
+                    'title' => (string) $notification->title,
+                    'content' => (string) ($notification->content ?? ''),
+                    'link' => $notification->link ?: url('admin/notifications/mark-read/' . $notification->id),
+                    'is_read' => (int) $notification->is_read,
+                    'icon' => Notification::typeIcon((string) $notification->type),
+                    'color' => Notification::typeColor((string) $notification->type),
+                    'time' => optional($notification->created_at)->diffForHumans() ?? '',
+                ];
+            })->values(),
+        ]);
+    }
+
+    public function api_mark_notif_read(Request $request)
+    {
+        $userId = (int) Auth::id();
+        $notification = Notification::query()
+            ->where('id', $request->input('id'))
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$notification) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy thông báo.',
+            ], 404);
+        }
+
+        $notification->markAsRead();
+        NotificationService::clearUnreadCache($userId);
+
+        return response()->json([
+            'success' => true,
+            'count' => Notification::unreadCount($userId),
+        ]);
+    }
+
+    // =====================================================
+    // NEWS CRUD - với Author, Tags, Schedule Workflow
+    // =====================================================
+
+    public function news_list(Request $request)
+    {
+        // Mỗi bài chỉ 1 dòng: join schedule mới nhất (theo id), tránh trùng khi có nhiều bản ghi news_schedules
+        $scheduleLatest = DB::table('news_schedules')
+            ->select('news_id', DB::raw('MAX(id) as last_id'))
+            ->groupBy('news_id');
+
+        $ratingStats = DB::table('news_ratings')
+            ->select('news_id',
+                DB::raw('COUNT(id) as rating_count'),
+                DB::raw('AVG(score) as rating_avg'),
+                DB::raw('COALESCE(SUM(score), 0) as rating_score_sum'))
+            ->groupBy('news_id');
+
+        $query = DB::table('news as a')
+            ->leftJoin('news_cat as b', 'a.RowIDCat', '=', 'b.RowID')
+            ->leftJoin('users as c', 'a.author_id', '=', 'c.id')
+            ->leftJoinSub($scheduleLatest, 'ls', function ($join) {
+                $join->on('a.RowID', '=', 'ls.news_id');
+            })
+            ->leftJoin('news_schedules as d', function ($join) {
+                $join->on('d.id', '=', 'ls.last_id');
+            })
+            ->leftJoinSub($ratingStats, 'rs', function ($join) {
+                $join->on('a.RowID', '=', 'rs.news_id');
+            })
+            ->selectRaw('a.*, b.Name as CategoryName, c.fullname as AuthorName, d.status as ScheduleStatus, d.publish_type, d.scheduled_at,
+                COALESCE(rs.rating_count, 0) as rating_count,
+                COALESCE(rs.rating_avg, 0) as rating_avg')
+            ->orderBy('a.RowID', 'DESC');
+
+        if ($request->filled('keyword')) {
+            $kw = '%' . trim($request->keyword) . '%';
+            $query->where(function ($q) use ($kw) {
+                $q->where('a.Name', 'like', $kw);
+                if (Schema::hasColumn('news', 'SmallDescription')) {
+                    $q->orWhere('a.SmallDescription', 'like', $kw);
+                }
+            });
+        }
+        if ($request->filled('cat')) {
+            $query->where('a.RowIDCat', $request->cat);
+        }
+        if ($request->filled('status')) {
+            $query->where('a.Status', (int) $request->status);
+        }
+        if ($request->filled('author')) {
+            $query->where('a.author_id', $request->author);
+        }
+        if ($request->filled('schedule_status')) {
+            $query->where('d.status', $request->schedule_status);
+        }
+
+        $News = $query->paginate(20);
+        $NewsCategory = \App\Models\NewsCategory::get();
+        $authors = $this->historicalAuthorUsers();
+
+        $statsScheduleLatest = DB::table('news_schedules')
+            ->select('news_id', DB::raw('MAX(id) as last_id'))
+            ->groupBy('news_id');
+
+        $statsRow = DB::table('news as a')
+            ->leftJoinSub($statsScheduleLatest, 'sls', function ($join) {
+                $join->on('a.RowID', '=', 'sls.news_id');
+            })
+            ->leftJoin('news_schedules as sd', function ($join) {
+                $join->on('sd.id', '=', 'sls.last_id');
+            })
+            ->selectRaw(
+                'COUNT(a.RowID) as news_total,
+                SUM(CASE WHEN a.Status = 1 THEN 1 ELSE 0 END) as news_published,
+                SUM(CASE WHEN sd.status = ? OR (sd.id IS NULL AND a.Status = 0) THEN 1 ELSE 0 END) as news_draft,
+                SUM(CASE WHEN sd.status = ? THEN 1 ELSE 0 END) as news_pending',
+                [NewsSchedule::STATUS_DRAFT, NewsSchedule::STATUS_PENDING]
+            )
+            ->first();
+
+        $stats = [
+            'news_total' => (int) ($statsRow->news_total ?? 0),
+            'news_published' => (int) ($statsRow->news_published ?? 0),
+            'news_draft' => (int) ($statsRow->news_draft ?? 0),
+            'news_pending' => (int) ($statsRow->news_pending ?? 0),
+        ];
+
+        // Rating overview for the page
+        $totalRatings = (int) NewsRating::count();
+        $avgRating = round((float) (NewsRating::avg('score') ?? 0), 1);
+        $byScore = NewsRating::select('score', DB::raw('COUNT(*) as total'))->groupBy('score')->get()->keyBy('score');
+        $score5 = (int) ($byScore->get(5)->total ?? 0);
+        $score4 = (int) ($byScore->get(4)->total ?? 0);
+        $positive = $score5 + $score4;
+        $positivePct = $totalRatings > 0 ? round($positive / $totalRatings * 100) : 0;
+
+        return view('back.news.list', compact(
+            'News', 'NewsCategory', 'authors', 'stats',
+            'totalRatings', 'avgRating', 'positivePct'
+        ));
+    }
+
+    /**
+     * Bảng news kiểu cũ: nếu cột RowID chưa AUTO_INCREMENT thì gán max(RowID)+1 trước insert.
+     */
+    protected function ensureNewsRowIdForInsert(News $news): void
+    {
+        if ($news->exists) {
+            return;
+        }
+        $rowIdCol = DB::selectOne("SHOW COLUMNS FROM news WHERE Field = 'RowID'");
+        if ($rowIdCol && stripos((string) ($rowIdCol->Extra ?? ''), 'auto_increment') !== false) {
+            return;
+        }
+        $news->RowID = (int) (News::query()->max('RowID') ?? 0) + 1;
+    }
+
+    public function news_getAdd(Request $request)
+    {
+        $NewsCategory = \App\Models\NewsCategory::get();
+        $authors = $this->articleAuthorUsers();
+        $tags = Tag::active()->orderBy('name')->get(['id', 'name', 'slug']);
+        $canPublishDirectly = Auth::user() && Auth::user()->hasPermission('news.approve');
+
+        return view('back.news.add', compact('NewsCategory', 'authors', 'tags', 'canPublishDirectly'));
+    }
+
+    public function news_add(Request $request)
+    {
+        $submitAction = $request->input('submit_action', 'save_draft');
+        if (!in_array($submitAction, ['save_draft', 'submit_review', 'publish_now'], true)) {
+            $submitAction = 'save_draft';
+        }
+
+        $canPublishDirectly = Auth::user() && Auth::user()->hasPermission('news.approve');
+        if ($submitAction === 'publish_now' && !$canPublishDirectly) {
+            return redirect()->back()
+                ->withInput()
+                ->with(['flash_level' => 'danger', 'flash_message' => 'Bạn không có quyền xuất bản trực tiếp bài viết.']);
+        }
+
+        $publishType = $submitAction === 'publish_now'
+            ? NewsSchedule::PUBLISH_NOW
+            : $request->input('publish_type', NewsSchedule::PUBLISH_NOW);
+
+        if ($submitAction === 'submit_review' && $publishType === NewsSchedule::PUBLISH_SCHEDULE) {
+            $request->validate([
+                'Name'          => 'required|string|max:255',
+                'Description'   => 'required|string',
+                'author_id'    => 'nullable|integer|exists:users,id',
+                'scheduled_at' => 'required|date|after:now',
+            ], [
+                'Name.required'        => 'Vui lòng nhập tiêu đề bài viết.',
+                'Description.required' => 'Vui lòng nhập nội dung bài viết.',
+                'scheduled_at.required' => 'Vui lòng chọn thời gian xuất bản.',
+                'scheduled_at.after'    => 'Thời gian xuất bản phải sau thời điểm hiện tại.',
+            ]);
+        } elseif ($submitAction !== 'save_draft') {
+            $request->validate([
+                'Name'        => 'required|string|max:255',
+                'Description' => 'required|string',
+                'author_id'   => 'nullable|integer|exists:users,id',
+            ], [
+                'Name.required'        => 'Vui lòng nhập tiêu đề bài viết.',
+                'Description.required' => 'Vui lòng nhập nội dung bài viết.',
+            ]);
+        } else {
+            $request->validate([
+                'Name'      => 'required|string|max:255',
+                'author_id' => 'nullable|integer|exists:users,id',
+            ], [
+                'Name.required' => 'Vui lòng nhập tiêu đề bài viết.',
+            ]);
+        }
+
+        $authorId = $this->resolveAuthorIdForNews($request->input('author_id'));
+        if (!$authorId) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['author_id' => 'Vui lòng chọn một tác giả hợp lệ cho bài viết.']);
+        }
+
+        $newsStatus = $submitAction === 'publish_now' ? 1 : 0;
+        $scheduleStatus = $this->resolveScheduleStatusForAction($submitAction);
+
+        $News = new News;
+        $News->RowIDCat = $request->RowIDCat;
+        $News->Status = $newsStatus;
+        $News->Name = $request->Name;
+        $News->Alias = $request->Alias;
+        $News->MetaTitle = $request->MetaTitle;
+        $News->MetaDescription = $request->MetaDescription;
+        $News->MetaKeyword = $request->MetaKeyword;
+        $News->SmallDescription = $request->SmallDescription;
+        $News->Description = $request->Description;
+        $News->Views = $request->Views ?? 0;
+        $News->author_id = $authorId;
+        $this->ensureNewsRowIdForInsert($News);
+
+        if ($request->hasFile('Images')) {
+            $News->Images = $this->processNewsImage($request->file('Images'), null);
+        }
+
+        $News->save();
+
+        if ($request->tags) {
+            $this->syncNewsTags($News->RowID, $request->tags);
+        }
+
+        $this->createOrUpdateSchedule(
+            $News->RowID,
+            $publishType,
+            $request->scheduled_at,
+            $scheduleStatus,
+            true
+        );
+
+        $message = match ($submitAction) {
+            'submit_review' => 'Đã gửi bài viết vào hàng đợi duyệt.',
+            'publish_now' => 'Đã xuất bản bài viết.',
+            default => 'Đã lưu bài viết vào bản nháp.',
+        };
+
+        return redirect('admin/news/edit/' . $News->RowID)->with([
+            'flash_level'   => 'success',
+            'flash_message' => $message,
+        ]);
+    }
+
+    public function news_getedit(Request $request, $RowID)
+    {
+        $News = News::with('tags')->find($RowID);
+
+        if (!$News) {
+            return redirect('admin/news/list')->with([
+                'flash_level'   => 'danger',
+                'flash_message' => 'Bài viết không tồn tại.',
+            ]);
+        }
+
+        $NewsCategory = \App\Models\NewsCategory::get();
+        $authors = $this->articleAuthorUsers($News->author_id);
+        $tags = Tag::active()->orderBy('name')->get(['id', 'name', 'slug']);
+        $schedule = NewsSchedule::where('news_id', $RowID)->first();
+        $canPublishDirectly = Auth::user() && Auth::user()->hasPermission('news.approve');
+
+        return view('back.news.edit', compact('News', 'NewsCategory', 'authors', 'tags', 'schedule', 'canPublishDirectly'));
+    }
+
+    public function news_edit(Request $request, $RowID)
+    {
+        $submitAction = $request->input('submit_action', 'save_draft');
+        if (!in_array($submitAction, ['save_draft', 'submit_review', 'publish_now'], true)) {
+            $submitAction = 'save_draft';
+        }
+
+        $canPublishDirectly = Auth::user() && Auth::user()->hasPermission('news.approve');
+        if ($submitAction === 'publish_now' && !$canPublishDirectly) {
+            return redirect()->back()
+                ->withInput()
+                ->with(['flash_level' => 'danger', 'flash_message' => 'Bạn không có quyền xuất bản trực tiếp bài viết.']);
+        }
+
+        $publishType = $submitAction === 'publish_now'
+            ? NewsSchedule::PUBLISH_NOW
+            : $request->input('publish_type', NewsSchedule::PUBLISH_NOW);
+
+        if ($submitAction === 'submit_review' && $publishType === NewsSchedule::PUBLISH_SCHEDULE) {
+            $request->validate([
+                'Name'          => 'required|string|max:255',
+                'Description'   => 'required|string',
+                'author_id'    => 'nullable|integer|exists:users,id',
+                'scheduled_at' => 'required|date|after:now',
+            ], [
+                'Name.required'        => 'Vui lòng nhập tiêu đề bài viết.',
+                'Description.required' => 'Vui lòng nhập nội dung bài viết.',
+                'scheduled_at.required' => 'Vui lòng chọn thời gian xuất bản.',
+                'scheduled_at.after'    => 'Thời gian xuất bản phải sau thời điểm hiện tại.',
+            ]);
+        } elseif ($submitAction !== 'save_draft') {
+            $request->validate([
+                'Name'        => 'required|string|max:255',
+                'Description' => 'required|string',
+                'author_id'   => 'nullable|integer|exists:users,id',
+            ], [
+                'Name.required'        => 'Vui lòng nhập tiêu đề bài viết.',
+                'Description.required' => 'Vui lòng nhập nội dung bài viết.',
+            ]);
+        } else {
+            $request->validate([
+                'Name'      => 'required|string|max:255',
+                'author_id' => 'nullable|integer|exists:users,id',
+            ], [
+                'Name.required' => 'Vui lòng nhập tiêu đề bài viết.',
+            ]);
+        }
+
+        $News = News::find($RowID);
+        if (!$News) {
+            return redirect('admin/news/list')->with([
+                'flash_level'   => 'danger',
+                'flash_message' => 'Bài viết không tồn tại.',
+            ]);
+        }
+
+        $authorId = $this->resolveAuthorIdForNews($request->input('author_id'), $News->author_id);
+        if (!$authorId) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['author_id' => 'Vui lòng chọn một tác giả hợp lệ cho bài viết.']);
+        }
+
+        $News->RowIDCat = $request->RowIDCat;
+        $News->Status = $submitAction === 'publish_now' ? 1 : 0;
+        $News->Name = $request->Name;
+        $News->Alias = $request->Alias;
+        $News->MetaTitle = $request->MetaTitle;
+        $News->MetaDescription = $request->MetaDescription;
+        $News->MetaKeyword = $request->MetaKeyword;
+        $News->SmallDescription = $request->SmallDescription;
+        $News->Description = $request->Description;
+        $News->Views = $request->Views ?? 0;
+        $News->author_id = $authorId;
+
+        if ($request->hasFile('Images')) {
+            $News->Images = $this->processNewsImage($request->file('Images'), $News->Images);
+        }
+
+        $News->save();
+
+        if ($request->tags) {
+            $this->syncNewsTags($News->RowID, $request->tags);
+        } else {
+            $this->syncNewsTags($News->RowID, []);
+        }
+
+        $this->createOrUpdateSchedule(
+            $News->RowID,
+            $publishType,
+            $request->scheduled_at,
+            $this->resolveScheduleStatusForAction($submitAction),
+            true
+        );
+
+        $message = match ($submitAction) {
+            'submit_review' => 'Đã cập nhật và gửi bài viết vào hàng đợi duyệt.',
+            'publish_now' => 'Đã cập nhật và xuất bản bài viết.',
+            default => 'Đã lưu bài viết vào bản nháp.',
+        };
+
+        return redirect('admin/news/edit/' . $RowID)->with([
+            'flash_level'   => 'success',
+            'flash_message' => $message,
+        ]);
+    }
+
+    public function news_delete(Request $request, $RowID)
+    {
+        $News = News::find($RowID);
+
+        if (!$News) {
+            return redirect('admin/news/list')->with(NotificationHelper::newsNotFound());
+        }
+
+        $name = $News->Name;
+
+        if ($News->Images) {
+            $imgPath = public_path('images/news/' . $News->Images);
+            if (is_file($imgPath)) {
+                @unlink($imgPath);
+            }
+        }
+
+        DB::table('news_tags')->where('news_id', $RowID)->delete();
+        NewsSchedule::where('news_id', $RowID)->delete();
+        $News->delete();
+
+        return redirect('admin/news/list')->with(NotificationHelper::newsDeleted($name));
+    }
+
+    public function news_duplicate(Request $request, $RowID)
+    {
+        $original = News::find($RowID);
+
+        if (!$original) {
+            return redirect('admin/news/list')->with([
+                'flash_level'   => 'danger',
+                'flash_message' => 'Bài viết không tồn tại.',
+            ]);
+        }
+
+        $duplicate = $original->replicate();
+        $duplicate->Name = $original->Name . ' (Bản sao)';
+        $duplicate->Alias = $original->Alias . '-copy-' . time();
+        $duplicate->Status = 0;
+        $duplicate->author_id = $this->resolveAuthorIdForNews(Auth::id(), $original->author_id);
+        $this->ensureNewsRowIdForInsert($duplicate);
+        $duplicate->save();
+        $this->createOrUpdateSchedule($duplicate->RowID, NewsSchedule::PUBLISH_NOW, null, NewsSchedule::STATUS_DRAFT);
+
+        // Copy tags
+        $tagIds = DB::table('news_tags')->where('news_id', $RowID)->pluck('tag_id');
+        foreach ($tagIds as $tagId) {
+            DB::table('news_tags')->insert([
+                'news_id'    => $duplicate->RowID,
+                'tag_id'     => $tagId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return redirect('admin/news/edit/' . $duplicate->RowID)->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Đã sao chép bài viết thành công!',
+        ]);
+    }
+
+    public function news_bulk_action(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|string',
+            'action' => 'required|in:delete,show,hide,submit_review',
+        ], [
+            'ids.required'   => 'Chưa chọn bài viết nào.',
+            'action.required' => 'Chưa chọn thao tác.',
+        ]);
+
+        $ids = array_filter(array_map('intval', explode(',', $request->ids)));
+        if (empty($ids)) {
+            return redirect('admin/news/list')->with([
+                'flash_level'   => 'warning',
+                'flash_message' => 'Không có bài viết nào được chọn.',
+            ]);
+        }
+
+        $count = count($ids);
+
+        switch ($request->action) {
+            case 'delete':
+                foreach ($ids as $id) {
+                    $news = News::find($id);
+                    if ($news) {
+                        if ($news->Images) {
+                            $imgPath = public_path('images/news/' . $news->Images);
+                            if (is_file($imgPath)) {
+                                @unlink($imgPath);
+                            }
+                        }
+                        DB::table('news_tags')->where('news_id', $id)->delete();
+                        NewsSchedule::where('news_id', $id)->delete();
+                        $news->delete();
+                    }
+                }
+                $msg = "Đã xóa {$count} bài viết.";
+                break;
+
+            case 'show':
+                News::whereIn('RowID', $ids)->update(['Status' => 1]);
+                $msg = "Đã hiển thị {$count} bài viết.";
+                break;
+
+            case 'hide':
+                News::whereIn('RowID', $ids)->update(['Status' => 0]);
+                $msg = "Đã ẩn {$count} bài viết.";
+                break;
+
+            case 'submit_review':
+                foreach ($ids as $id) {
+                    $news = News::find($id);
+                    if ($news) {
+                        $news->Status = 0;
+                        $news->save();
+
+                        $schedule = NewsSchedule::where('news_id', $id)->first();
+                        if (!$schedule) {
+                            $schedule = new NewsSchedule();
+                            $schedule->news_id = $id;
+                            $schedule->created_by = Auth::id();
+                        }
+                        $schedule->status = NewsSchedule::STATUS_PENDING;
+                        $schedule->publish_type = 'now';
+                        $schedule->save();
+                    }
+                }
+                $msg = "Đã gửi {$count} bài viết chờ duyệt.";
+                break;
+        }
+
+        return redirect('admin/news/list')->with(NotificationHelper::bulkAction($request->action, $count));
+    }
+
+    // =====================================================
+    // TAG MANAGEMENT
+    // =====================================================
+    public function tag_list(Request $request)
+    {
+        return app(\App\Http\Controllers\TagController::class)->index($request);
+    }
+
+    public function tag_getadd()
+    {
+        return view('back.tag.add');
+    }
+
+    public function tag_add(Request $request)
+    {
+        return app(\App\Http\Controllers\TagController::class)->store($request);
+    }
+
+    public function tag_getedit($id)
+    {
+        return app(\App\Http\Controllers\TagController::class)->edit($id);
+    }
+
+    public function tag_edit(Request $request, $id)
+    {
+        return app(\App\Http\Controllers\TagController::class)->update($request, $id);
+    }
+
+    public function tag_delete(Request $request, $id)
+    {
+        return app(\App\Http\Controllers\TagController::class)->destroy($request, $id);
+    }
+
+    // =====================================================
+    // DANH MỤC TIN (news_cat)
+    // =====================================================
+
+    public function news_cat_list()
+    {
+        $NewsCategory = NewsCategory::orderBy('RowID', 'ASC')->get();
+
+        return view('back.news.cat_list', compact('NewsCategory'));
+    }
+
+    public function news_cat_getadd()
+    {
+        return view('back.news.cat_add');
+    }
+
+    public function news_cat_add(Request $request)
+    {
+        $request->validate([
+            'Name'   => 'required|string|max:255',
+            'Alias'  => 'nullable|string|max:255|unique:news_cat,Alias',
+            'Status' => 'nullable|in:0,1',
+        ], [
+            'Name.required' => 'Vui lòng nhập tên danh mục.',
+            'Alias.unique'  => 'Đường dẫn (slug) đã tồn tại.',
+        ]);
+
+        $alias = trim((string) $request->Alias);
+        if ($alias === '') {
+            $alias = Str::slug($request->Name);
+        }
+
+        if (NewsCategory::where('Alias', $alias)->exists()) {
+            return back()->withInput()->withErrors(['Alias' => 'Đường dẫn đã tồn tại.']);
+        }
+
+        $payload = [
+            'Name'   => trim($request->Name),
+            'Alias'  => $alias,
+            'Status' => (int) ($request->Status ?? 1),
+            'color'  => $request->color ?: '#6c757d',
+            'description' => $request->description ?: null,
+        ];
+
+        $rowIdCol = DB::selectOne("SHOW COLUMNS FROM news_cat WHERE Field = 'RowID'");
+        if ($rowIdCol && stripos((string) ($rowIdCol->Extra ?? ''), 'auto_increment') === false) {
+            $payload['RowID'] = (int) (NewsCategory::query()->max('RowID') ?? 0) + 1;
+        }
+
+        $cat = NewsCategory::create($payload);
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $this->saveCategoryImage($cat, $request->file('image'));
+        }
+
+        return redirect('admin/news_cat/list')->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Thêm danh mục thành công.',
+        ]);
+    }
+
+    public function news_cat_getedit($id)
+    {
+        $NewsCategory = NewsCategory::findOrFail($id);
+
+        return view('back.news.cat_edit', compact('NewsCategory'));
+    }
+
+    public function news_cat_edit(Request $request, $id)
+    {
+        $NewsCategory = NewsCategory::findOrFail($id);
+
+        $request->validate([
+            'Name'   => 'required|string|max:255',
+            'Alias'  => 'nullable|string|max:255|unique:news_cat,Alias,' . $id . ',RowID',
+            'Status' => 'nullable|in:0,1',
+        ], [
+            'Name.required' => 'Vui lòng nhập tên danh mục.',
+            'Alias.unique'  => 'Đường dẫn (slug) đã tồn tại.',
+        ]);
+
+        $alias = trim((string) $request->Alias);
+        if ($alias === '') {
+            $alias = Str::slug($request->Name);
+        }
+
+        $NewsCategory->Name = trim($request->Name);
+        $NewsCategory->Alias = $alias;
+        $NewsCategory->Status = (int) ($request->Status ?? $NewsCategory->Status);
+        $NewsCategory->color = $request->color ?: '#6c757d';
+        $NewsCategory->description = $request->description ?: null;
+        $NewsCategory->save();
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $this->saveCategoryImage($NewsCategory, $request->file('image'));
+        }
+
+        return redirect('admin/news_cat/list')->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Cập nhật danh mục thành công.',
+        ]);
+    }
+
+    public function news_cat_delete(Request $request, $id)
+    {
+        $cat = NewsCategory::findOrFail($id);
+
+        if (News::where('RowIDCat', $id)->exists()) {
+            return redirect('admin/news_cat/list')->with([
+                'flash_level'   => 'danger',
+                'flash_message' => 'Không thể xóa: vẫn còn bài viết thuộc danh mục này.',
+            ]);
+        }
+
+        $cat->delete();
+
+        return redirect('admin/news_cat/list')->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Đã xóa danh mục.',
+        ]);
+    }
+
+    /**
+     * Cập nhật thứ tự danh mục (nếu bảng có cột Sort).
+     */
+    public function news_cat_update_sort(Request $request, $id)
+    {
+        $cat = NewsCategory::find($id);
+        if (!$cat) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy danh mục.'], 404);
+        }
+
+        if ($request->has('sort') && Schema::hasColumn('news_cat', 'Sort')) {
+            $cat->Sort = (int) $request->input('sort');
+            $cat->save();
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back();
+    }
+
+    // =====================================================
+    // STAFF
+    // =====================================================
 
     public function staff_profile()
     {
@@ -40,470 +886,679 @@ class BackController extends Controller
 
     public function staff_profile_post(Request $request)
     {
-        if ($request->fullname == '' || $request->email == '' || $request->phone == '') {
-            return redirect('admin/staff/profile')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
+        $request->validate([
+            'fullname' => 'required|string|max:255',
+            'email'    => 'required|email|max:255',
+            'phone'    => 'nullable|string|max:50',
+            'address'  => 'nullable|string|max:500',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        $user = Auth::user();
+        $user->fullname = $request->fullname;
+        $user->email = $request->email;
+        $user->phone = $request->phone;
+        $user->address = $request->address;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
         }
 
-        $User = User::find($request->id);
-        $User->fullname = $request->fullname;
-        $User->address = $request->address;
-        $User->email = $request->email;
-        $User->phone = $request->phone;
+        $user->save();
 
-        if (isset($request->password) && $request->password != '') {
-            $User->password = bcrypt($request->password);
-        }
-
-        $Flag = $User->save();
-
-        if ($Flag == true) {
-            return redirect('admin/staff/profile')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Cập nhật thông tin tài khoản thành công.'
-            ]);
-        } else {
-            return redirect('admin/staff/profile')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Chỉnh sửa tài khoản không thành công.'
-            ]);
-        }
+        return redirect()->back()->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Đã cập nhật thông tin tài khoản.',
+        ]);
     }
 
-    public function staff_list()
+    public function staff_list(Request $request)
     {
-        $user = DB::table('users as a')
-            ->join('users_level as b', 'a.level', '=', 'b.id')
-            ->selectRaw('a.id, a.fullname, a.address, a.email, a.phone, b.name')
-            ->get();
+        $keyword = $request->input('keyword', '');
+        $level = $request->input('level', '');
+        $status = $request->input('status', '');
 
-        return view('back.staff.list', compact('user'));
+        $query = User::query()->adminAccounts()->withCount('authoredNews')->orderBy('id', 'desc');
+
+        if ($keyword !== '') {
+            $kw = '%' . $keyword . '%';
+            $query->where(function ($q) use ($kw) {
+                $q->where('username', 'like', $kw)
+                    ->orWhere('fullname', 'like', $kw)
+                    ->orWhere('email', 'like', $kw);
+            });
+        }
+
+        if ($level !== '' && $level !== null) {
+            $query->where('level', (int) $level);
+        }
+
+        if ($status !== '' && $status !== null && Schema::hasColumn('users', 'is_active')) {
+            $query->where('is_active', (int) $status);
+        }
+
+        $user = $query->get();
+
+        return view('back.staff.list', compact('user', 'keyword', 'level', 'status'));
+    }
+
+    public function staff_filter(Request $request)
+    {
+        $qs = http_build_query($request->except(['_token']));
+
+        return redirect()->to(url('admin/admin-manager/list') . ($qs ? '?' . $qs : ''));
     }
 
     public function staff_add()
     {
-        $UserLevel = UserLevel::where('status', 1)->get();
+        $UserLevel = UserLevel::orderBy('id')->get();
+
         return view('back.staff.add', compact('UserLevel'));
     }
 
     public function staff_add_post(Request $request)
     {
-        if ($request->fullname == '' || $request->email == '' || $request->phone == '' || $request->username == '' || $request->password == '') {
-            return redirect('admin/staff/add')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
+        $request->validate([
+            'level'    => 'required|integer|exists:users_level,id',
+            'is_active'=> 'nullable|in:0,1',
+            'is_author'=> 'nullable|in:0,1',
+            'fullname' => 'required|string|max:255',
+            'email'    => 'required|email|max:255|unique:users,email',
+            'phone'    => 'nullable|string|max:50',
+            'address'  => 'nullable|string|max:500',
+            'username' => 'required|string|max:100|unique:users,username|regex:/^[a-zA-Z0-9._-]+$/',
+            'password' => 'required|string|min:6',
+        ]);
+
+        $level = (int) $request->level;
+        if (!in_array($level, [1, 2], true)) {
+            return redirect()->back()->withInput()->with(['flash_level' => 'warning', 'flash_message' => 'Cấp bậc không hợp lệ.']);
         }
 
-        $User = new User;
-        $User->level = $request->level;
-        $User->status = 1;
-        $User->username = $request->username;
-        $User->password = bcrypt($request->password);
-        $User->fullname = $request->fullname;
-        $User->address = $request->address;
-        $User->email = $request->email;
-        $User->phone = $request->phone;
-
-        $Flag = $User->save();
-
-        if ($Flag) {
-            return redirect('admin/staff/list')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Thêm nhân viên thành công'
-            ]);
-        } else {
-            return redirect('admin/staff/list')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi thêm nhân viên'
-            ]);
+        $u = new User();
+        $u->username = $request->username;
+        $u->password = Hash::make($request->password);
+        $u->fullname = $request->fullname;
+        $u->email = $request->email;
+        $u->phone = $request->phone ?? '';
+        $u->address = $request->address;
+        $u->level = $level;
+        if (Schema::hasColumn('users', 'is_admin_account')) {
+            $u->is_admin_account = 1;
         }
+        if (Schema::hasColumn('users', 'is_active')) {
+            $u->is_active = (int) ($request->input('is_active', 1));
+        }
+        if (Schema::hasColumn('users', 'is_author')) {
+            $u->is_author = Auth::user()->isAdmin()
+                ? (int) $request->input('is_author', 0)
+                : 0;
+        }
+        $u->save();
+
+        return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã thêm nhân viên.']);
     }
-    public function staff_edit(Request $request, $id)
+
+    public function staff_edit($id)
     {
-        $User = User::find($id);
-        $UserLevel = UserLevel::where('status', 1)->get();
+        $User = User::where('id', $id)->adminAccounts()->firstOrFail();
+        $UserLevel = UserLevel::orderBy('id')->get();
+
         return view('back.staff.edit', compact('User', 'UserLevel'));
     }
 
     public function staff_edit_post(Request $request, $id)
     {
-        if ($request->fullname == '' || $request->email == '' || $request->phone == '') {
-            return redirect('admin/staff/add')->with(['flash_level' => 'danger', 'flash_message' => 'Vui lòng điền vào các trường có dấu *']);
-        }
-        $User = User::find($id);
-        $User->level = $request->level;
-        $User->status = $request->status;
+        $User = User::where('id', $id)->adminAccounts()->firstOrFail();
 
-        if (isset($request->password) && $request->password != '') {
-            $User->password = bcrypt($request->password);
+        $request->validate([
+            'level'    => 'required|integer|exists:users_level,id',
+            'is_active'=> 'nullable|in:0,1',
+            'is_author'=> 'nullable|in:0,1',
+            'fullname' => 'required|string|max:255',
+            'email'    => 'required|email|max:255|unique:users,email,' . $User->id,
+            'phone'    => 'nullable|string|max:50',
+            'address'  => 'nullable|string|max:500',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        $level = (int) $request->level;
+        if (!in_array($level, [1, 2], true)) {
+            return redirect()->back()->withInput()->with(['flash_level' => 'warning', 'flash_message' => 'Cấp bậc không hợp lệ.']);
         }
 
+        if ((int) Auth::id() === (int) $User->id) {
+            if ($request->input('is_active') === '0' || $request->input('is_active') === 0) {
+                return redirect()->back()->withInput()->with(['flash_level' => 'warning', 'flash_message' => 'Bạn không thể tự khóa tài khoản của chính mình.']);
+            }
+        }
+
+        $User->level = $level;
         $User->fullname = $request->fullname;
-        $User->address = $request->address;
         $User->email = $request->email;
-        $User->phone = $request->phone;
-        $Flag = $User->save();
+        $User->phone = $request->phone ?? '';
+        $User->address = $request->address;
 
-        if ($Flag == true) {
-            return redirect('admin/staff/edit/' . $id)->with(['flash_level' => 'success', 'flash_message' => 'Chỉnh sửa nhân viên thành công']);
-        } else {
-            return redirect('admin/staff/edit/' . $id)->with(['flash_level' => 'danger', 'flash_message' => 'Lỗi chỉnh sửa nhân viên']);
+        if (Schema::hasColumn('users', 'is_active')) {
+            if ((int) Auth::id() !== (int) $User->id) {
+                $User->is_active = (int) $request->input('is_active', 1);
+            }
         }
+
+        if ($request->filled('password')) {
+            $User->password = Hash::make($request->password);
+        }
+
+        if (Schema::hasColumn('users', 'is_author') && Auth::user()->isAdmin()) {
+            $User->is_author = (int) $request->input('is_author', 0);
+        }
+
+        $User->save();
+
+        return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật nhân viên.']);
     }
+
     public function staff_delete(Request $request, $id)
     {
-        $User = User::find($id);
-        $Flag = $User->delete();
-
-        if ($Flag == true) {
-            return redirect('admin/staff/list')->with(['flash_level' => 'success', 'flash_message' => 'Xóa nhân viên thành công']);
-        } else {
-            return redirect('admin/staff/list')->with(['flash_level' => 'danger', 'flash_message' => 'Lỗi xóa nhân viên']);
+        if ((int) Auth::id() === (int) $id) {
+            return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'warning', 'flash_message' => 'Không thể xóa tài khoản đang đăng nhập.']);
         }
+
+        $u = User::where('id', $id)->adminAccounts()->first();
+        if (!$u) {
+            return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'warning', 'flash_message' => 'Không tìm thấy nhân viên.']);
+        }
+
+        $u->delete();
+
+        return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã xóa nhân viên.']);
     }
+
+    // =====================================================
+    // SYSTEM
+    // =====================================================
+
     public function system()
     {
-        $name = System::where('Status', 1)->where('Code', 'name')->first();
-        $email = System::where('Status', 1)->where('Code', 'email')->first();
-        $phone = System::where('Status', 1)->where('Code', 'phone')->first();
-        $address = System::where('Status', 1)->where('Code', 'address')->first();
-        $copyright = System::where('Status', 1)->where('Code', 'copyright')->first();
-        $logo = System::where('Status', 1)->where('Code', 'logo')->first();
-        $favicon = System::where('Status', 1)->where('Code', 'favicon')->first();
-        $map = System::where('Status', 1)->where('Code', 'map')->first();
+        $name = System::where('Code', 'name')->first() ?? (object) ['Description' => ''];
+        $logo_text = System::where('Code', 'logo_text')->first() ?? (object) ['Description' => 'VNXPRESS'];
+        $logo_type = System::where('Code', 'logo_type')->first() ?? (object) ['Description' => 'text'];
+        $logo = System::where('Code', 'logo')->first() ?? (object) ['Description' => ''];
+        $favicon = System::where('Code', 'favicon')->first() ?? (object) ['Description' => ''];
+        $email = System::where('Code', 'email')->first() ?? (object) ['Description' => ''];
+        $phone = System::where('Code', 'phone')->first() ?? (object) ['Description' => ''];
+        $address = System::where('Code', 'address')->first() ?? (object) ['Description' => ''];
+        $map = System::where('Code', 'map')->first() ?? (object) ['Description' => ''];
+        $copyright = System::where('Code', 'copyright')->first() ?? (object) ['Description' => ''];
 
         return view('back.system.system', compact(
             'name',
+            'logo_text',
+            'logo_type',
             'logo',
-            'email',
             'favicon',
-            'address',
-            'copyright',
+            'email',
             'phone',
-            'map'
+            'address',
+            'map',
+            'copyright'
         ));
     }
 
-
     public function system_post(Request $request)
     {
-        if ($request->name == '' || $request->email == '' || $request->phone == '') {
-            return redirect('admin/system')->with(['flash_level' => 'danger', 'flash_message' => 'Vui lòng điền vào các trường có dấu *']);
-        }
+        $request->validate([
+            'name'      => 'required|string|max:255',
+            'logo_text' => 'required|string|max:255',
+            'logo_type' => 'required|in:text,image',
+            'email'     => 'required|email|max:255',
+            'phone'     => 'required|string|max:100',
+            'address'   => 'nullable|string|max:500',
+            'map'       => 'nullable|string',
+            'copyright' => 'nullable|string|max:255',
+            'logo'      => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:4096',
+            'favicon'   => 'nullable|file|mimes:ico,png,gif,jpeg,jpg,svg|max:1024',
+        ]);
 
-        // update ten cong ty
-        System::where('Status', 1)
-            ->where('Code', 'name')
-            ->update(['Description' => $request->name]);
+        $this->saveSystemRow('name', $request->name);
+        $this->saveSystemRow('logo_text', $request->logo_text);
+        $this->saveSystemRow('logo_type', $request->logo_type);
+        $this->saveSystemRow('email', $request->email);
+        $this->saveSystemRow('phone', $request->phone);
+        $this->saveSystemRow('address', (string) $request->input('address', ''));
+        $this->saveSystemRow('map', (string) $request->input('map', ''));
+        $this->saveSystemRow('copyright', (string) $request->input('copyright', ''));
 
-        System::where('Status', 1)
-            ->where('Code', 'email')
-            ->update(['Description' => $request->email]);
-
-        System::where('Status', 1)
-            ->where('Code', 'phone')
-            ->update(['Description' => $request->phone]);
-
-        System::where('Status', 1)
-            ->where('Code', 'address')
-            ->update(['Description' => $request->address]);
-
-        System::where('Status', 1)
-            ->where('Code', 'copyright')
-            ->update(['Description' => $request->copyright]);
-
-        System::where('Status', 1)
-            ->where('Code', 'map')
-            ->update(['Description' => $request->map]);
-
-        //logo
-        if (!empty($request->file('logo'))) {
-            $logo = System::where('Status', 1)->where('Code', 'logo')->first();
-            $path = 'images/logo/' . $logo->Description;
-            if (File::exists($path)) {
-                File::delete($path);
-            }
-
-            //upload images
-            $name = $request->file('logo')->getClientOriginalName();
-            $request->file('logo')->move('images/logo/', $name);
-
-            $logo->Description = $name;
-            $logo->save();
-        }
-
-        //favicon
-        if (!empty($request->file('favicon'))) {
-            $favicon = System::where('Status', 1)->where('Code', 'favicon')->first();
-            $path = 'images/favicon/' . $favicon->Description;
-            if (File::exists($path)) {
-                File::delete($path);
-            }
-            //upload images
-            $name = $request->file('favicon')->getClientOriginalName();
-            $request->file('favicon')->move('images/favicon/', $name);
-
-            $favicon->Description = $name;
-            $favicon->save();
-        }
-
-        return redirect('admin/system')->with(['flash_level' => 'success', 'flash_message' => 'Chỉnh sửa thành công']);
-    }
-
-
-    // quản lý danh mục tin tức  
-    public function news_cat_list()
-    {
-        $NewsCategory = NewsCategory::where('Status', 1)->get();
-        return view('back.news.cat_list', compact('NewsCategory'));
-    }
-
-    public function news_cat_getedit($RowID)
-    {
-        $NewsCategory = NewsCategory::find($RowID);
-        return view('back.news.cat_edit', compact('NewsCategory'));
-    }
-
-    public function news_cat_edit(Request $request, $RowID)
-    {
-        if ($request->Name == '') {
-            return redirect('admin/news_cat/edit/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $NewsCategory = NewsCategory::find($RowID);
-        $NewsCategory->Status = $request->Status;
-        $NewsCategory->Name = $request->Name;
-        $NewsCategory->Alias = $request->Alias;
-        $Flag = $NewsCategory->save();
-
-        if ($Flag == true) {
-            return redirect('admin/news_cat/edit/' . $RowID)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa danh mục tin tức thành công'
-            ]);
-        } else {
-            return redirect('admin/news_cat/edit/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa danh mục tin tức'
-            ]);
-        }
-    }
-    // quản lý danh mục tin tức    
-
-    // news management
-    public function news_list()
-    {
-        $News = DB::table('news as a')
-            ->join('news_cat as b', 'a.RowIDCat', '=', 'b.RowID')
-            ->selectRaw('a.*, b.Name as CategoryName')
-            ->orderBy('a.RowID', 'DESC')
-            ->get();
-        return view('back.news.list', compact('News'));
-    }
-
-    public function news_getAdd()
-    {
-        $NewsCategory = NewsCategory::get();
-        return view('back.news.add', compact('NewsCategory'));
-    }
-
-    public function news_add(Request $request)
-    {
-        // Kiểm tra các trường bắt buộc
-        if ($request->Name == '' || $request->Description == '') {
-            return redirect('admin/news/add')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $News = new News;
-        $News->RowIDCat = $request->RowIDCat;
-        $News->Status = $request->Status;
-        $News->Name = $request->Name;
-        $News->Alias = $request->Alias;
-        $News->Views = $request->Views;
-        $News->MetaTitle = $request->MetaTitle;
-        $News->MetaDescription = $request->MetaDescription;
-        $News->MetaKeyword = $request->MetaKeyword;
-        $News->SmallDescription = $request->SmallDescription;
-        $News->Description = $request->Description;
-
-        // Xử lý ảnh nếu có
-        if ($request->hasFile('Images')) {
-            $file = $request->file('Images');
-            if (!$file->isValid()) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Lỗi tải lên file'
-                ]);
-            }
-
-            $random_digit = rand(000000000, 999999999);
-            $name = $random_digit . '-' . $file->getClientOriginalName();
-            $duoi = strtolower($file->getClientOriginalExtension());
-
-            // Kiểm tra định dạng ảnh
-            if (!in_array($duoi, ['png', 'jpg', 'jpeg', 'svg'])) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Phần mở rộng ảnh không được hỗ trợ'
-                ]);
-            }
-
-            // Di chuyển file tạm thời
-            $tempPath = 'images/news/temp';
-            if (!file_exists($tempPath)) {
-                mkdir($tempPath, 0755, true);
-            }
-            $file->move($tempPath, $name);
-
-            // Xử lý ảnh bằng Intervention Image
-            $img = Image::make($tempPath . '/' . $name);
-            $filePath = 'images/news/' . date('Ymd');
-            if (!file_exists($filePath)) {
-                mkdir($filePath, 0755, true);
-            }
-            $img->fit(208, 141);
-            $img->save($filePath . '/' . $name);
-
-            // Xóa file tạm sau khi xử lý
-            if (file_exists($tempPath . '/' . $name)) {
-                unlink($tempPath . '/' . $name);
-            }
-
-            $News->Images = date('Ymd') . '/' . $name;
-        }
-
-        $Flag = $News->save();
-
-        if ($Flag) {
-            return redirect('admin/news/list')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Thêm tin tức thành công'
-            ]);
-        } else {
-            return redirect('admin/news/list')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi thêm tin tức'
-            ]);
-        }
-    }
-    public function news_delete(Request $request, $RowID)
-    {
-        $News = News::find($RowID);
-
-        if ($News->Images != '') {
-            if (file_exists('images/news/' . $News->Images)) {
-                unlink('images/news/' . $News->Images);
+        if ($request->hasFile('logo') && $request->file('logo')->isValid()) {
+            $fn = $this->storeSystemUpload($request->file('logo'), 'images/logo', ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']);
+            if ($fn !== '') {
+                $this->saveSystemRow('logo', $fn);
             }
         }
 
-        $Flag = $News->delete();
-
-        if ($Flag == true) {
-            return redirect('admin/news/list')->with(['flash_level' => 'success', 'flash_message' => 'Xóa tin tức thành công']);
-        } else {
-            return redirect('admin/news/list')->with(['flash_level' => 'danger', 'flash_message' => 'Lỗi xóa tin tức']);
-        }
-    }
-
-    public function news_getedit(Request $request, $RowID)
-    {
-        $NewsCategory = NewsCategory::get();
-        $News = News::find($RowID);
-        return view('back.news.edit', compact('News', 'NewsCategory'));
-    }
-
-    public function news_edit(Request $request, $RowID)
-    {
-        if ($request->Name == '' || $request->Description == '') {
-            return redirect('admin/news/edit/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $News = News::find($RowID);
-        $News->RowIDCat = $request->RowIDCat;
-        $News->Status = $request->Status;
-        $News->Name = $request->Name;
-        $News->Alias = $request->Alias;
-        $News->MetaTitle = $request->MetaTitle;
-        $News->MetaDescription = $request->MetaDescription;
-        $News->MetaKeyword = $request->MetaKeyword;
-        $News->SmallDescription = $request->SmallDescription;
-        $News->Description = $request->Description;
-        $News->Views = $request->Views;
-
-        if ($request->hasFile('Images')) {
-            $file = $request->file('Images');
-            $random_digit = rand(000000000, 999999999);
-            $name = $random_digit . '.' . $file->getClientOriginalName();
-            $duoi = strtolower($file->getClientOriginalExtension());
-
-            // Kiểm tra định dạng ảnh
-            if (!in_array($duoi, ['png', 'jpg', 'jpeg', 'svg'])) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Phần mở rộng ảnh không được hỗ trợ'
-                ]);
+        if ($request->hasFile('favicon') && $request->file('favicon')->isValid()) {
+            $fn = $this->storeSystemUpload($request->file('favicon'), 'images/favicon', ['ico', 'png', 'jpg', 'jpeg', 'gif', 'svg']);
+            if ($fn !== '') {
+                $this->saveSystemRow('favicon', $fn);
             }
+        }
 
-            if ($News->Images != '') {
-                if (file_exists('images/news/' . $News->Images)) {
-                    unlink('images/news/' . $News->Images);
+        return redirect()->back()->with(['flash_level' => 'success', 'flash_message' => 'Đã lưu cấu hình hệ thống.']);
+    }
+
+    // =====================================================
+    // PAGE / SOCIAL / NEWSLETTER / CONTACT / SLIDER
+    // =====================================================
+
+    public function page_list()
+    {
+        $page = Page::orderBy('Sort', 'asc')->orderBy('RowID', 'asc')->get();
+
+        return view('back.page.list', compact('page'));
+    }
+
+    public function page_edit($id)
+    {
+        $page = Page::where('RowID', $id)->firstOrFail();
+
+        return view('back.page.edit', compact('page'));
+    }
+
+    public function page_edit_post(Request $request, $id)
+    {
+        $page = Page::where('RowID', $id)->firstOrFail();
+
+        $request->validate([
+            'Status'         => 'required|in:0,1',
+            'menu_kind'      => 'nullable|string|max:50',
+            'Name'           => 'required|string|max:255',
+            'Alias'          => 'nullable|string|max:500',
+            'Font'           => 'nullable|string|max:100',
+            'Sort'           => 'nullable|integer',
+            'MetaTitle'      => 'nullable|string',
+            'MetaDescription'=> 'nullable|string',
+            'MetaKeyword'    => 'nullable|string',
+            'Description'    => 'required|string',
+            'Images'         => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:4096',
+        ]);
+
+        $kind = $request->input('menu_kind', Page::MENU_LINK);
+        $allowedKinds = array_keys(Page::menuKindLabels());
+        if (!in_array($kind, $allowedKinds, true)) {
+            $kind = Page::MENU_LINK;
+        }
+
+        $page->Status = (int) $request->Status;
+        if (Schema::hasColumn('page', 'menu_kind')) {
+            $page->menu_kind = $kind;
+        }
+        $page->Name = $request->Name;
+        $page->Alias = $request->Alias ?? '';
+        $page->Font = $request->Font ?? '';
+        $page->Sort = (int) $request->input('Sort', 0);
+        $page->MetaTitle = $request->MetaTitle ?? '';
+        $page->MetaDescription = $request->MetaDescription ?? '';
+        $page->MetaKeyword = $request->MetaKeyword ?? '';
+        $page->Description = $request->Description;
+
+        if ($request->hasFile('Images') && $request->file('Images')->isValid()) {
+            $img = $this->storePageImage($request->file('Images'), $page->Images);
+            if ($img !== '') {
+                $page->Images = $img;
+            }
+        }
+
+        $page->save();
+
+        return redirect()->to(url('admin/page/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật trang.']);
+    }
+
+    public function social_list()
+    {
+        $Social = Social::orderBy('Sort', 'asc')->orderBy('RowID', 'asc')->get();
+
+        return view('back.social.list', compact('Social'));
+    }
+
+    public function social_edit($id)
+    {
+        $Social = Social::where('RowID', $id)->firstOrFail();
+
+        return view('back.social.edit', compact('Social'));
+    }
+
+    public function social_edit_post(Request $request, $id)
+    {
+        $row = Social::where('RowID', $id)->firstOrFail();
+
+        $request->validate([
+            'Status' => 'required|in:0,1',
+            'Alias'  => 'required|string|max:500',
+            'Name'   => 'required|string|max:255',
+            'Font'   => 'required|string|max:2000',
+            'Sort'   => 'nullable|integer|min:0',
+        ], [
+            'Status.required' => 'Vui lòng chọn trạng thái.',
+            'Alias.required'  => 'Vui lòng nhập đường dẫn (URL) mạng xã hội.',
+            'Name.required'   => 'Vui lòng nhập tên mạng xã hội.',
+            'Font.required'   => 'Vui lòng nhập mã icon (Font).',
+            'Font.max'        => 'Mã Font không được vượt quá :max ký tự.',
+        ]);
+
+        $row->Status = (int) $request->Status;
+        $row->Alias = trim((string) $request->Alias);
+        $row->Name = trim((string) $request->Name);
+        $row->Font = trim((string) $request->Font);
+        $row->Sort = (int) ($request->input('Sort') === '' || $request->input('Sort') === null
+            ? $row->Sort
+            : $request->Sort);
+        $row->save();
+
+        return redirect()->to(url('admin/social/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật mạng xã hội.']);
+    }
+
+    public function newsletter_list(Request $request)
+    {
+        $q = Newsletter::query()->orderByDesc('RowID');
+
+        $kw = trim((string) $request->input('keyword', ''));
+        if ($kw !== '') {
+            $q->where('Email', 'like', '%' . $kw . '%');
+        }
+
+        $st = $request->input('status', '');
+        if ($st === '1') {
+            $q->where('is_active', true)->whereNull('unsubscribed_at');
+        } elseif ($st === '2') {
+            $q->where(function ($qq) {
+                $qq->where('is_active', false)->orWhereNotNull('unsubscribed_at');
+            });
+        }
+
+        $Newsletter = $q->paginate(30)->withQueryString();
+
+        $stats = [
+            'total'      => Newsletter::count(),
+            'active'     => Newsletter::where('is_active', true)->whereNull('unsubscribed_at')->count(),
+            'unsub'      => Newsletter::where(function ($qq) {
+                $qq->where('is_active', false)->orWhereNotNull('unsubscribed_at');
+            })->count(),
+            'unreviewed' => Newsletter::where('is_reviewed', false)->count(),
+        ];
+
+        return view('back.newsletter.list', compact('Newsletter', 'stats'));
+    }
+
+    public function newsletter_export()
+    {
+        $filename = 'newsletter-' . date('Y-m-d-His') . '.csv';
+
+        return new StreamedResponse(function () {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($out, ['Email', 'is_active', 'subscribed_at', 'unsubscribed_at', 'ip_address']);
+
+            Newsletter::orderBy('RowID')->chunk(500, function ($rows) use ($out) {
+                foreach ($rows as $r) {
+                    fputcsv($out, [
+                        $r->Email,
+                        $r->is_active ? '1' : '0',
+                        $r->subscribed_at ? $r->subscribed_at->format('Y-m-d H:i:s') : '',
+                        $r->unsubscribed_at ? $r->unsubscribed_at->format('Y-m-d H:i:s') : '',
+                        $r->ip_address ?? '',
+                    ]);
                 }
-            }
-
-            $file->move('images/news', $name);
-            $img = Image::make('images/news/' . $name);
-
-            // kiểm tra, nếu không tồn tại thì tạo folder
-            $filePath = "images/news/" . date("Ymd");
-            if (!file_exists($filePath)) {
-                mkdir("images/news/" . date("Ymd"), 0777, true);
-            }
-
-            $img->fit(208, 141);
-            $img->save('images/news/' . date("Ymd") . '/' . $name);
-
-            // delete images upload
-            if (file_exists('images/news/' . $name)) {
-                unlink('images/news/' . $name);
-            }
-            $News->Images = date('Ymd') . '/' . $name;
-        }
-
-
-        $Flag = $News->save();
-
-        if ($Flag == true) {
-            return redirect('admin/news/edit/' . $RowID)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa tin tức thành công'
-            ]);
-        } else {
-            return redirect('admin/staff/list/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa tin tức'
-            ]);
-        }
+            });
+            fclose($out);
+        }, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
+    public function newsletter_edit($id)
+    {
+        $Newsletter = Newsletter::where('RowID', $id)->firstOrFail();
 
-    /* slider -----------------------------------------------------------------*/
+        return view('back.newsletter.edit', compact('Newsletter'));
+    }
+
+    public function newsletter_edit_post(Request $request, $id)
+    {
+        $row = Newsletter::where('RowID', $id)->firstOrFail();
+
+        $request->validate([
+            'Email'        => 'required|email|max:255|unique:newsletter,Email,' . $row->RowID . ',RowID',
+            'is_active'    => 'required|in:0,1',
+            'is_reviewed'  => 'required|in:0,1',
+        ]);
+
+        $row->Email = $request->Email;
+        $row->is_active = (bool) (int) $request->is_active;
+        $row->is_reviewed = (bool) (int) $request->is_reviewed;
+
+        if (!$row->is_active && !$row->unsubscribed_at) {
+            $row->unsubscribed_at = now();
+        }
+        if ($row->is_active) {
+            $row->unsubscribed_at = null;
+        }
+
+        $row->save();
+
+        return redirect()->to(url('admin/newsletter/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật đăng ký newsletter.']);
+    }
+
+    public function newsletter_delete(Request $request, $id)
+    {
+        $row = Newsletter::where('RowID', $id)->first();
+        if ($row) {
+            $row->delete();
+        }
+
+        return redirect()->to(url('admin/newsletter/list'))->with([
+            'flash_level'   => 'success',
+            'flash_message' => 'Xóa email khỏi danh sách nhận tin thành công.',
+        ]);
+    }
+
+    public function contact_list(Request $request)
+    {
+        $q = Contact::query()->orderByDesc((new Contact())->getKeyName());
+
+        $kw = trim((string) $request->input('keyword', ''));
+        if ($kw !== '') {
+            $like = '%' . $kw . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('Name', 'like', $like)
+                    ->orWhere('Email', 'like', $like)
+                    ->orWhere('Phone', 'like', $like)
+                    ->orWhere('subject', 'like', $like);
+            });
+        }
+
+        $status = $request->input('status', '');
+        if ($status === 'new') {
+            $q->where('is_reviewed', false)->whereNull('replied_at');
+        } elseif ($status === 'read') {
+            $q->where('is_reviewed', true)->whereNull('replied_at');
+        } elseif ($status === 'replied') {
+            $q->whereNotNull('replied_at');
+        }
+
+        $cat = $request->input('category', '');
+        if ($cat !== '') {
+            $q->where('category', $cat);
+        }
+
+        $pri = $request->input('priority', '');
+        if ($pri !== '') {
+            $q->where('priority', $pri);
+        }
+
+        $Contact = $q->paginate(30)->withQueryString();
+
+        $stats = [
+            'total'   => Contact::count(),
+            'new'     => Contact::where('is_reviewed', false)->whereNull('replied_at')->count(),
+            'read'    => Contact::where('is_reviewed', true)->whereNull('replied_at')->count(),
+            'replied' => Contact::whereNotNull('replied_at')->count(),
+        ];
+
+        $categoryLabels = Contact::categoryLabels();
+        $priorityLabels = Contact::priorityLabels();
+        $categoryColors = Contact::categoryColors();
+        $priorityColors = Contact::priorityColors();
+
+        return view('back.contact.list', compact(
+            'Contact',
+            'stats',
+            'categoryLabels',
+            'priorityLabels',
+            'categoryColors',
+            'priorityColors'
+        ));
+    }
+
+    public function contact_edit($id)
+    {
+        $Contact = $this->findContactRecord($id);
+        $replies = $Contact->replies()->get();
+        $staffs = User::query()->adminAccounts()->orderBy('fullname')->get(['id', 'fullname', 'email']);
+        $categoryLabels = Contact::categoryLabels();
+        $priorityLabels = Contact::priorityLabels();
+        $categoryColors = Contact::categoryColors();
+        $priorityColors = Contact::priorityColors();
+
+        return view('back.contact.edit', compact('Contact', 'replies', 'staffs', 'categoryLabels', 'priorityLabels', 'categoryColors', 'priorityColors'));
+    }
+
+    public function contact_edit_post(Request $request, $id)
+    {
+        $c = $this->findContactRecord($id);
+
+        $request->validate([
+            'Name1'       => 'required|string|max:255',
+            'Email'       => 'required|email|max:255',
+            'txtPhone'    => 'required|string|max:50',
+            'selCategory' => 'nullable|string|max:50',
+            'selPriority' => 'nullable|string|max:50',
+            'assigned_to' => 'nullable|integer|exists:users,id',
+            'txtSubject'  => 'nullable|string|max:500',
+            'Message'     => 'required|string',
+            'admin_note'  => 'nullable|string',
+        ]);
+
+        $c->Name = $request->Name1;
+        $c->Email = $request->Email;
+        $c->Phone = $request->txtPhone;
+        $c->category = $request->input('selCategory', Contact::CATEGORY_OTHER);
+        $c->priority = $request->input('selPriority', Contact::PRIORITY_MEDIUM);
+        $c->assigned_to = $request->input('assigned_to') ?: null;
+        $c->subject = $request->txtSubject;
+        $c->Message = $request->Message;
+        $c->admin_note = $request->admin_note;
+
+        $c->is_reviewed = $request->has('is_reviewed');
+
+        if ($request->has('is_replied')) {
+            if (!$c->replied_at) {
+                $c->replied_at = now();
+            }
+            $c->is_reviewed = true;
+        }
+
+        $c->save();
+
+        return redirect()->to(url('admin/contact/edit/' . $c->getKey()))->with(['flash_level' => 'success', 'flash_message' => 'Đã lưu liên hệ.']);
+    }
+
+    public function contact_delete(Request $request, $id)
+    {
+        $c = Contact::query()->find($id);
+        if ($c) {
+            ContactReply::where('contact_id', $c->getKey())->delete();
+            $c->delete();
+        }
+
+        return redirect()->to(url('admin/contact/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã xóa liên hệ.']);
+    }
+
+    public function contact_mark_read($id)
+    {
+        $c = Contact::query()->find($id);
+        if ($c) {
+            $c->markAsReviewed();
+        }
+
+        return redirect()->back()->with(['flash_level' => 'success', 'flash_message' => 'Đã đánh dấu đã xem.']);
+    }
+
+    public function contact_mark_replied($id)
+    {
+        $c = Contact::query()->find($id);
+        if ($c) {
+            $c->markAsReplied();
+        }
+
+        return redirect()->back()->with(['flash_level' => 'success', 'flash_message' => 'Đã đánh dấu đã phản hồi.']);
+    }
+
+    public function contactReply(Request $request, $id)
+    {
+        $c = $this->findContactRecord($id);
+
+        $request->validate([
+            'reply_intro'   => 'nullable|string|max:500',
+            'reply_content' => 'required|string|min:5|max:5000',
+            'reply_outro'   => 'nullable|string|max:500',
+        ]);
+
+        $staff = Auth::user();
+        ContactReply::create([
+            'contact_id'       => $c->getKey(),
+            'staff_id'         => $staff->id,
+            'staff_name'       => $staff->fullname ?? $staff->username,
+            'reply_intro'      => $request->reply_intro,
+            'reply_content'    => $request->reply_content,
+            'reply_outro'      => $request->reply_outro,
+            'recipient_email'  => $c->Email,
+            'sent_at'          => now(),
+        ]);
+
+        $replyData = [
+            'subject'          => $c->subject ?? 'Liên hệ của bạn',
+            'contact_name'     => $c->Name,
+            'intro'            => $request->reply_intro,
+            'original_subject' => $c->subject,
+            'original_message' => $c->Message,
+            'original_date'    => $c->created_at ? $c->created_at->format('d/m/Y H:i') : '',
+            'reply_content'    => $request->reply_content,
+            'outro'            => $request->reply_outro,
+            'staff_name'       => $staff->fullname ?? $staff->username,
+        ];
+
+        try {
+            Mail::send('emails.contact_reply', ['reply' => $replyData], function ($message) use ($c, $replyData) {
+                $message->to($c->Email)
+                    ->subject('Phản hồi từ đội ngũ hỗ trợ - ' . ($replyData['subject'] ?? 'Liên hệ của bạn'));
+            });
+        } catch (\Throwable $e) {
+            Log::error('contactReply mail: ' . $e->getMessage());
+        }
+
+        // Lưu nội dung phản hồi cuối cùng vào contact
+        $c->last_reply_content = $request->reply_content;
+        $c->is_reviewed = true;
+        $c->replied_at = now();
+        $c->save();
+
+        return redirect()->to(url('admin/contact/edit/' . $c->getKey()))->with(['flash_level' => 'success', 'flash_message' => 'Đã gửi phản hồi.']);
+    }
+
     public function slider_list()
     {
-        $Slider = Slider::selectRaw('*')
-            ->orderBy('RowID', 'DESC')
-            ->get();
+        $Slider = Slider::orderBy('Sort', 'asc')->orderBy('RowID', 'asc')->get();
 
         return view('back.slider.list', compact('Slider'));
     }
@@ -513,430 +1568,1324 @@ class BackController extends Controller
         return view('back.slider.add');
     }
 
-
     public function slider_add(Request $request)
     {
-        if ($request->Name == '' || $request->Alias == '') {
-            return redirect('admin/slider/add/')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
+        $request->validate([
+            'Status' => 'required|in:0,1',
+            'Name'   => 'required|string|max:255',
+            'Alias'  => 'required|string|max:500',
+            'Sort'   => 'nullable|integer',
+            'Images' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:4096',
+        ]);
+
+        $row = new Slider();
+        $row->Status = (int) $request->Status;
+        $row->Name = $request->Name;
+        $row->Alias = $request->Alias;
+        $row->Sort = (int) $request->input('Sort', 1);
+        $row->Images = '';
+
+        if ($request->hasFile('Images') && $request->file('Images')->isValid()) {
+            $row->Images = $this->storeSliderImage($request->file('Images'));
         }
 
-        $Slider = new Slider;
-        $Slider->Status = $request->Status;
-        $Slider->Name = $request->Name;
-        $Slider->Alias = $request->Alias;
-        $Slider->Sort = $request->Sort;
+        $row->save();
 
-        // Xử lý ảnh nếu có
-        if ($request->hasFile('Images')) {
-            $file = $request->file('Images');
-            if (!$file->isValid()) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Lỗi tải lên file'
-                ]);
-            }
-
-            $random_digit = rand(000000000, 999999999);
-            $name = $random_digit . '-' . $file->getClientOriginalName();
-            $duoi = strtolower($file->getClientOriginalExtension());
-
-            // Kiểm tra định dạng ảnh
-            if (!in_array($duoi, ['png', 'jpg', 'jpeg', 'svg'])) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Phần mở rộng ảnh không được hỗ trợ'
-                ]);
-            }
-
-            // Di chuyển file tạm thời
-            $tempPath = 'images/slider/temp';
-            if (!file_exists($tempPath)) {
-                mkdir($tempPath, 0755, true);
-            }
-            $file->move($tempPath, $name);
-
-            // Xử lý ảnh bằng Intervention Image
-            $img = Image::make($tempPath . '/' . $name);
-            $filePath = 'images/slider/' . date('Ymd');
-            if (!file_exists($filePath)) {
-                mkdir($filePath, 0755, true);
-            }
-            $img->fit(1920, 760);
-            $img->save($filePath . '/' . $name);
-
-            // Xóa file tạm sau khi xử lý
-            if (file_exists($tempPath . '/' . $name)) {
-                unlink($tempPath . '/' . $name);
-            }
-
-            $Slider->Images = date('Ymd') . '/' . $name;
-        }
-
-        $Flag = $Slider->save();
-
-        if ($Flag) {
-            return redirect('admin/slider/list')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Thêm slideshow thành công'
-            ]);
-        } else {
-            return redirect('admin/slider/list')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi thêm slideshow'
-            ]);
-        }
-    }
-    public function slider_delete(Request $request, $RowID)
-    {
-        $Slider = Slider::find($RowID);
-
-        if ($Slider->Images != '') {
-            if (file_exists('images/slider/' . $Slider->Images)) {
-                unlink('images/slider/' . $Slider->Images);
-            }
-        }
-
-        $Flag = $Slider->delete();
-
-        if ($Flag == true) {
-            return redirect('admin/slider/list')->with(['flash_level' => 'success', 'flash_message' => 'Xóa slideshow thành công']);
-        } else {
-            return redirect('admin/slider/list')->with(['flash_level' => 'danger', 'flash_message' => 'Lỗi xóa slideshow']);
-        }
+        return redirect()->to(url('admin/slider/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã thêm slider.']);
     }
 
-    public function slider_getedit(Request $request, $RowID)
+    public function slider_getedit($RowID)
     {
-        $Slider = Slider::find($RowID);
+        $Slider = Slider::where('RowID', $RowID)->firstOrFail();
+
         return view('back.slider.edit', compact('Slider'));
     }
 
-    public function slider_edit(Request $request, $RowID)
+    public function slider_edit(Request $request, $id)
     {
-        if ($request->Name == '' || $request->Alias == '') {
-            return redirect('admin/slider/edit/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
+        $row = Slider::where('RowID', $id)->firstOrFail();
+
+        $request->validate([
+            'Status' => 'required|in:0,1',
+            'Name'   => 'required|string|max:255',
+            'Alias'  => 'required|string|max:500',
+            'Sort'   => 'nullable|integer',
+            'Images' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:4096',
+        ]);
+
+        $row->Status = (int) $request->Status;
+        $row->Name = $request->Name;
+        $row->Alias = $request->Alias;
+        $row->Sort = (int) $request->input('Sort', 0);
+
+        if ($request->hasFile('Images') && $request->file('Images')->isValid()) {
+            $img = $this->storeSliderImage($request->file('Images'), $row->Images);
+            if ($img !== '') {
+                $row->Images = $img;
+            }
         }
 
-        $Slider = Slider::find($RowID);
-        $Slider->Status = $request->Status;
-        $Slider->Name = $request->Name;
-        $Slider->Alias = $request->Alias;
-        $Slider->Sort = $request->Sort;
+        $row->save();
 
-        if ($request->hasFile('Images')) {
-            $file = $request->file('Images');
-            $random_digit = rand(000000000, 999999999);
-            $name = $random_digit . '.' . $file->getClientOriginalName();
-            $duoi = strtolower($file->getClientOriginalExtension());
+        return redirect()->to(url('admin/slider/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật slider.']);
+    }
 
-            // Kiểm tra định dạng ảnh
-            if (!in_array($duoi, ['png', 'jpg', 'jpeg', 'svg'])) {
-                return back()->with([
-                    'flash_level' => 'danger',
-                    'flash_message' => 'Phần mở rộng ảnh không được hỗ trợ'
+    public function slider_delete(Request $request, $RowID)
+    {
+        $row = Slider::where('RowID', $RowID)->first();
+        if ($row) {
+            $path = 'images/slider/' . $row->Images;
+            if (!empty($row->Images) && file_exists($path)) {
+                @unlink($path);
+            }
+            $row->delete();
+        }
+
+        return redirect()->to(url('admin/slider/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã xóa slider.']);
+    }
+
+    // =====================================================
+    // QUẢN LÝ QUẢNG CÁO (ADS)
+    // =====================================================
+
+    public function ad_list(Request $request)
+    {
+        $baseQuery = Ad::query()->popup();
+        $adStats = [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('status', true)->count(),
+            'inactive' => (clone $baseQuery)->where('status', false)->count(),
+            'views' => (int) (clone $baseQuery)->sum('view_count'),
+            'clicks' => (int) (clone $baseQuery)->sum('click_count'),
+        ];
+
+        $query = (clone $baseQuery)
+            ->orderBy('priority', 'desc')
+            ->orderBy('sort', 'asc');
+
+        if ($request->filled('keyword')) {
+            $kw = '%' . trim($request->keyword) . '%';
+            $query->where('name', 'like', $kw);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', (int) $request->status === 1);
+        }
+
+        $Ads = $query->paginate(20);
+
+        return view('back.ad.list', compact('Ads', 'adStats'));
+    }
+
+    public function ad_getAdd()
+    {
+        return view('back.ad.add');
+    }
+
+    public function ad_add(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:4096',
+            'link' => 'nullable|url|max:500',
+            'location' => 'required|in:homepage,article,all',
+            'popup_position' => 'nullable|in:center,bottom_right,bottom_left,top_right,top_left',
+            'auto_close_seconds' => 'nullable|integer|min:0|max:300',
+            'show_once_per_session' => 'nullable|in:0,1',
+            'show_close_button' => 'nullable|in:0,1',
+            'impression_limit' => 'nullable|integer|min:0|max:999',
+            'cooldown_minutes' => 'nullable|integer|min:0|max:525600',
+            'show_delay_seconds' => 'nullable|integer|min:0|max:300',
+            'status' => 'nullable|in:0,1',
+            'sort' => 'nullable|integer|min:0',
+            'priority' => 'nullable|integer|min:0',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ], [
+            'name.required' => 'Vui lòng nhập tên quảng cáo.',
+            'type.in' => 'Loại quảng cáo không hợp lệ.',
+            'location.in' => 'Vị trí hiển thị không hợp lệ.',
+        ]);
+
+        $ad = new Ad();
+        $ad->name = trim($request->name);
+        $ad->link = $request->filled('link') ? trim($request->link) : null;
+        $ad->type = Ad::TYPE_POPUP;
+        $ad->location = $request->input('location', Ad::LOC_ALL);
+        $ad->popup_position = $request->input('popup_position', 'center');
+        $ad->show_once_per_session = $request->has('show_once_per_session') ? (int) $request->show_once_per_session : false;
+        $ad->auto_close_seconds = (int) $request->input('auto_close_seconds', 0);
+        $ad->show_close_button = $request->has('show_close_button') ? (int) $request->show_close_button : true;
+        $ad->impression_limit = (int) $request->input('impression_limit', 1);
+        $ad->cooldown_minutes = (int) $request->input('cooldown_minutes', 30);
+        $ad->show_delay_seconds = (int) $request->input('show_delay_seconds', 2);
+        $ad->banner_width = null;
+        $ad->banner_height = null;
+        $ad->banner_align = 'center';
+        $ad->status = $request->has('status') ? (int) $request->status : true;
+        $ad->sort = $request->filled('sort')
+            ? (int) $request->input('sort')
+            : $this->nextAdSort(Ad::TYPE_POPUP, Ad::LOC_ALL);
+        $ad->priority = (int) $request->input('priority', 0);
+
+        if ($request->filled('start_date')) {
+            $ad->start_date = \Carbon\Carbon::parse($request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $ad->end_date = \Carbon\Carbon::parse($request->end_date);
+        }
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $ad->image = $this->storeAdImage($request->file('image'));
+        }
+
+        $ad->save();
+
+        return redirect()->to(url('admin/ads/list'))->with([
+            'flash_level' => 'success',
+            'flash_message' => 'Đã thêm quảng cáo mới.',
+        ]);
+    }
+
+    public function ad_getedit($id)
+    {
+        $Ad = Ad::popup()->findOrFail($id);
+
+        return view('back.ad.edit', compact('Ad'));
+    }
+
+    public function ad_edit(Request $request, $id)
+    {
+        $ad = Ad::popup()->findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:4096',
+            'link' => 'nullable|url|max:500',
+            'location' => 'required|in:homepage,article,all',
+            'popup_position' => 'nullable|in:center,bottom_right,bottom_left,top_right,top_left',
+            'auto_close_seconds' => 'nullable|integer|min:0|max:300',
+            'show_once_per_session' => 'nullable|in:0,1',
+            'show_close_button' => 'nullable|in:0,1',
+            'impression_limit' => 'nullable|integer|min:0|max:999',
+            'cooldown_minutes' => 'nullable|integer|min:0|max:525600',
+            'show_delay_seconds' => 'nullable|integer|min:0|max:300',
+            'status' => 'nullable|in:0,1',
+            'sort' => 'nullable|integer|min:0',
+            'priority' => 'nullable|integer|min:0',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        $ad->name = trim($request->name);
+        $ad->link = $request->filled('link') ? trim($request->link) : null;
+        $ad->type = Ad::TYPE_POPUP;
+        $ad->location = $request->input('location', Ad::LOC_ALL);
+        $ad->popup_position = $request->input('popup_position', 'center');
+        $ad->show_once_per_session = $request->has('show_once_per_session') ? (int) $request->show_once_per_session : false;
+        $ad->auto_close_seconds = (int) $request->input('auto_close_seconds', 0);
+        $ad->show_close_button = $request->has('show_close_button') ? (int) $request->show_close_button : true;
+        $ad->impression_limit = (int) $request->input('impression_limit', 1);
+        $ad->cooldown_minutes = (int) $request->input('cooldown_minutes', 30);
+        $ad->show_delay_seconds = (int) $request->input('show_delay_seconds', 2);
+        $ad->banner_width = null;
+        $ad->banner_height = null;
+        $ad->banner_align = 'center';
+        $ad->status = $request->has('status') ? (int) $request->status : true;
+        $ad->sort = $request->filled('sort')
+            ? (int) $request->input('sort')
+            : $ad->sort;
+        $ad->priority = (int) $request->input('priority', 0);
+
+        if ($request->filled('start_date')) {
+            $ad->start_date = \Carbon\Carbon::parse($request->start_date);
+        } else {
+            $ad->start_date = null;
+        }
+
+        if ($request->filled('end_date')) {
+            $ad->end_date = \Carbon\Carbon::parse($request->end_date);
+        } else {
+            $ad->end_date = null;
+        }
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $ad->image = $this->storeAdImage($request->file('image'), $ad->image);
+        }
+
+        $ad->save();
+
+        return redirect()->to(url('admin/ads/edit/' . $id))->with([
+            'flash_level' => 'success',
+            'flash_message' => 'Đã cập nhật quảng cáo.',
+        ]);
+    }
+
+    public function ad_delete(Request $request, $id)
+    {
+        $ad = Ad::popup()->findOrFail($id);
+
+        if ($ad->image) {
+            $path = public_path('images/ads/' . $ad->image);
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+
+        $ad->delete();
+
+        return redirect()->to(url('admin/ads/list'))->with([
+            'flash_level' => 'success',
+            'flash_message' => 'Đã xóa quảng cáo.',
+        ]);
+    }
+
+    /**
+     * Lưu ảnh quảng cáo
+     */
+    private function storeAdImage($file, ?string $oldImage = null): string
+    {
+        if (!$file || !$file->isValid()) {
+            return '';
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
+            return '';
+        }
+
+        $dir = public_path('images/ads');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        if ($oldImage && file_exists($dir . DIRECTORY_SEPARATOR . $oldImage)) {
+            @unlink($dir . DIRECTORY_SEPARATOR . $oldImage);
+        }
+
+        $name = time() . '-' . rand(1000, 9999) . '.' . $ext;
+        $file->move($dir, $name);
+
+        return $name;
+    }
+
+    private function nextAdSort(string $type, string $location): int
+    {
+        $maxSort = Ad::query()
+            ->where('type', $type)
+            ->where('location', $location)
+            ->max('sort');
+
+        return ((int) $maxSort) + 1;
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    private function historicalAuthorUsers()
+    {
+        return User::query()
+            ->authorAccounts()
+            ->orderBy('fullname')
+            ->get(['id', 'fullname', 'username']);
+    }
+
+    private function articleAuthorUsers(?int $selectedAuthorId = null)
+    {
+        $authors = User::query()
+            ->authorCandidates()
+            ->orderBy('fullname')
+            ->get(['id', 'fullname', 'username']);
+
+        if ($selectedAuthorId) {
+            $selectedAuthor = User::query()
+                ->adminAccounts()
+                ->where('id', $selectedAuthorId)
+                ->first(['id', 'fullname', 'username']);
+
+            if ($selectedAuthor && !$authors->contains('id', $selectedAuthor->id)) {
+                $authors->prepend($selectedAuthor);
+                $authors = $authors->sortBy(function ($author) {
+                    return mb_strtolower($author->fullname ?? $author->username ?? '');
+                })->values();
+            }
+        }
+
+        return $authors;
+    }
+
+    private function resolveAuthorIdForNews($requestedAuthorId, ?int $currentAuthorId = null): ?int
+    {
+        $requestedAuthorId = $requestedAuthorId ? (int) $requestedAuthorId : null;
+
+        if ($requestedAuthorId) {
+            $isCurrentHistoricalAuthor = $currentAuthorId && $requestedAuthorId === (int) $currentAuthorId;
+            $isSelectableAuthor = User::query()
+                ->authorCandidates()
+                ->where('id', $requestedAuthorId)
+                ->exists();
+
+            if ($isSelectableAuthor || $isCurrentHistoricalAuthor) {
+                return $requestedAuthorId;
+            }
+        }
+
+        $currentUserId = Auth::id() ? (int) Auth::id() : null;
+        if ($currentUserId) {
+            $isCurrentUserAuthor = User::query()
+                ->authorCandidates()
+                ->where('id', $currentUserId)
+                ->exists();
+
+            if ($isCurrentUserAuthor) {
+                return $currentUserId;
+            }
+
+            $isCurrentUserAdminStaff = User::query()
+                ->adminAccounts()
+                ->active()
+                ->where('id', $currentUserId)
+                ->exists();
+
+            if ($isCurrentUserAdminStaff) {
+                return $currentUserId;
+            }
+        }
+
+        return $currentAuthorId;
+    }
+
+    private function getWeeklyViews(): array
+    {
+        $start = \Carbon\Carbon::today()->subDays(6);
+        $end = \Carbon\Carbon::today();
+        $stats = NewsViewStat::query()
+            ->selectRaw('view_date, SUM(total_views) as total')
+            ->whereBetween('view_date', [$start->toDateString(), $end->toDateString()])
+            ->groupBy('view_date')
+            ->pluck('total', 'view_date');
+
+        $labels = [];
+        $data = [];
+
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $labels[] = match ($date->dayOfWeekIso) {
+                1 => 'T2',
+                2 => 'T3',
+                3 => 'T4',
+                4 => 'T5',
+                5 => 'T6',
+                6 => 'T7',
+                default => 'CN',
+            };
+            $data[] = (int) ($stats[$date->toDateString()] ?? 0);
+        }
+
+        $today = (int) (NewsViewStat::query()
+            ->whereDate('view_date', today())
+            ->sum('total_views'));
+        $week = array_sum($data);
+        $month = (int) (NewsViewStat::query()
+            ->whereYear('view_date', now()->year)
+            ->whereMonth('view_date', now()->month)
+            ->sum('total_views'));
+        $allTime = (int) News::query()->sum('Views');
+        $trackingStartedAt = NewsViewStat::query()->min('view_date');
+
+        return [
+            'labels' => $labels,
+            'data' => $data,
+            'max' => max([1, ...$data]),
+            'today' => $today,
+            'week' => $week,
+            'month' => $month,
+            'all_time' => $allTime,
+            'tracked' => NewsViewStat::query()->exists(),
+            'tracking_started_at' => $trackingStartedAt,
+        ];
+    }
+
+    private function getRecentActivities(): array
+    {
+        $activities = collect();
+
+        News::query()
+            ->latest('created_at')
+            ->limit(4)
+            ->get(['RowID', 'Name', 'Title', 'created_at'])
+            ->each(function (News $news) use ($activities) {
+                $title = $news->Name ?: $news->Title ?: 'Bài viết không tên';
+
+                $activities->push([
+                    'time' => $news->created_at,
+                    'link' => url('admin/news/edit/' . $news->RowID),
+                    'icon' => 'fa-newspaper',
+                    'icon_bg' => 'gold',
+                    'title' => 'Bài viết mới: <strong>' . e(\Illuminate\Support\Str::limit($title, 70)) . '</strong>',
+                    'subtitle' => 'Cập nhật nội dung',
                 ]);
-            }
+            });
 
-            if ($Slider->Images != '') {
-                if (file_exists('images/slider/' . $Slider->Images)) {
-                    unlink('images/slider/' . $Slider->Images);
+        \App\Models\NewsComment::query()
+            ->latest('created_at')
+            ->limit(4)
+            ->get(['id', 'content', 'created_at'])
+            ->each(function ($comment) use ($activities) {
+                $activities->push([
+                    'time' => $comment->created_at,
+                    'link' => url('admin/comment/list'),
+                    'icon' => 'fa-comments',
+                    'icon_bg' => 'blue',
+                    'title' => 'Bình luận mới: <strong>' . e(\Illuminate\Support\Str::limit((string) $comment->content, 70)) . '</strong>',
+                    'subtitle' => 'Tương tác độc giả',
+                ]);
+            });
+
+        Contact::query()
+            ->latest('created_at')
+            ->limit(4)
+            ->selectRaw('RowID as id, Name, subject, created_at')
+            ->get()
+            ->each(function (Contact $contact) use ($activities) {
+                $subject = $contact->subject ?: $contact->Name ?: 'Liên hệ mới';
+
+                $activities->push([
+                    'time' => $contact->created_at,
+                    'link' => url('admin/contact/edit/' . $contact->getKey()),
+                    'icon' => 'fa-envelope-open-text',
+                    'icon_bg' => 'red',
+                    'title' => 'Liên hệ mới: <strong>' . e(\Illuminate\Support\Str::limit($subject, 70)) . '</strong>',
+                    'subtitle' => 'Hộp thư liên hệ',
+                ]);
+            });
+
+        return $activities
+            ->sortByDesc('time')
+            ->take(8)
+            ->values()
+            ->all();
+    }
+
+    private function getCategoryStats(): array
+    {
+        $palette = ['#c9a84c', '#4a9eff', '#5cb97b', '#e57373', '#8f7cff', '#00b8a9', '#f78c6b', '#90caf9'];
+        $rows = NewsCategory::query()
+            ->leftJoin('news', function ($join) {
+                $join->on('news_cat.RowID', '=', 'news.RowIDCat')
+                    ->where('news.Status', 1);
+            })
+            ->groupBy('news_cat.RowID', 'news_cat.Name', 'news_cat.color')
+            ->orderByDesc(DB::raw('COUNT(news.RowID)'))
+            ->limit(6)
+            ->get([
+                'news_cat.RowID',
+                'news_cat.Name',
+                'news_cat.color',
+                DB::raw('COUNT(news.RowID) as total_news'),
+            ]);
+
+        return [
+            'labels' => $rows->pluck('Name')->map(fn ($name) => $name ?: 'Chưa đặt tên')->values()->all(),
+            'data' => $rows->pluck('total_news')->map(fn ($count) => (int) $count)->values()->all(),
+            'colors' => $rows->values()->map(function ($row, $index) use ($palette) {
+                return $row->color ?: ($palette[$index % count($palette)] ?? '#c9a84c');
+            })->all(),
+        ];
+    }
+
+    private function getTopAuthors(): array
+    {
+        return User::query()
+            ->adminAccounts()
+            ->withCount(['authoredNews as news_count' => function ($query) {
+                $query->where('Status', 1);
+            }])
+            ->orderByDesc('news_count')
+            ->orderBy('fullname')
+            ->limit(5)
+            ->get(['id', 'fullname', 'username', 'level'])
+            ->map(function (User $user) {
+                return [
+                    'name' => $user->fullname ?: $user->username ?: 'Không rõ',
+                    'level' => (int) $user->level,
+                    'news_count' => (int) $user->news_count,
+                ];
+            })
+            ->all();
+    }
+
+    private function getTopRatedArticles(int $limit = 5): array
+    {
+        return DB::table('news')
+            ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->where('news.Status', 1)
+            ->groupBy('news.RowID', 'news.Name', 'news.Title')
+            ->selectRaw('
+                news.RowID,
+                news.Name,
+                news.Title,
+                AVG(news_ratings.score) as avg_score,
+                COUNT(news_ratings.id) as total_ratings
+            ')
+            ->orderByDesc('avg_score')
+            ->orderByDesc('total_ratings')
+            ->limit($limit)
+            ->get()
+            ->map(function ($news) {
+                $title = $news->Name ?: $news->Title ?: 'Không có tiêu đề';
+                return [
+                    'id' => $news->RowID,
+                    'title' => \Illuminate\Support\Str::limit($title, 80),
+                    'avg_score' => round((float) $news->avg_score, 2),
+                    'total_ratings' => (int) $news->total_ratings,
+                    'stars' => $this->buildStarDisplay((float) $news->avg_score),
+                ];
+            })
+            ->all();
+    }
+
+    private function getLowestRatedArticles(int $limit = 5): array
+    {
+        return DB::table('news')
+            ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->where('news.Status', 1)
+            ->groupBy('news.RowID', 'news.Name', 'news.Title')
+            ->selectRaw('
+                news.RowID,
+                news.Name,
+                news.Title,
+                AVG(news_ratings.score) as avg_score,
+                COUNT(news_ratings.id) as total_ratings
+            ')
+            ->orderBy('avg_score')
+            ->orderByDesc('total_ratings')
+            ->limit($limit)
+            ->get()
+            ->map(function ($news) {
+                $title = $news->Name ?: $news->Title ?: 'Không có tiêu đề';
+                return [
+                    'id' => $news->RowID,
+                    'title' => \Illuminate\Support\Str::limit($title, 80),
+                    'avg_score' => round((float) $news->avg_score, 2),
+                    'total_ratings' => (int) $news->total_ratings,
+                    'stars' => $this->buildStarDisplay((float) $news->avg_score),
+                ];
+            })
+            ->all();
+    }
+
+    private function getMostProlificAuthors(int $limit = 5): array
+    {
+        return User::query()
+            ->adminAccounts()
+            ->whereHas('authoredNews')
+            ->withCount(['authoredNews as published_count' => function ($q) {
+                $q->where('Status', 1);
+            }])
+            ->withCount(['authoredNews as total_count' => function ($q) {
+                $q->where('Status', '>=', 0);
+            }])
+            ->orderByDesc('published_count')
+            ->orderByDesc('total_count')
+            ->orderBy('fullname')
+            ->limit($limit)
+            ->get(['id', 'fullname', 'username', 'level'])
+            ->map(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->fullname ?: $user->username ?: 'Không rõ',
+                    'username' => $user->username,
+                    'level' => (int) $user->level,
+                    'published_count' => (int) $user->published_count,
+                    'total_count' => (int) $user->total_count,
+                    'draft_count' => max(0, (int) $user->total_count - (int) $user->published_count),
+                ];
+            })
+            ->all();
+    }
+
+    private function getAuthorsByHighestRatingRatio(int $limit = 5): array
+    {
+        $authorStats = DB::table('news')
+            ->join('users', 'news.author_id', '=', 'users.id')
+            ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->where('news.Status', 1)
+            ->groupBy('users.id', 'users.fullname', 'users.username', 'users.level')
+            ->selectRaw('
+                users.id,
+                users.fullname,
+                users.username,
+                users.level,
+                AVG(news_ratings.score) as avg_rating,
+                COUNT(DISTINCT news.RowID) as rated_articles,
+                COUNT(news_ratings.id) as total_ratings,
+                SUM(CASE WHEN news_ratings.score >= 4 THEN 1 ELSE 0 END) as positive_ratings,
+                SUM(CASE WHEN news_ratings.score <= 2 THEN 1 ELSE 0 END) as negative_ratings,
+                (SUM(CASE WHEN news_ratings.score >= 4 THEN 1 ELSE 0 END) / COUNT(news_ratings.id)) * 100 as positive_rate,
+                (SUM(CASE WHEN news_ratings.score <= 2 THEN 1 ELSE 0 END) / COUNT(news_ratings.id)) * 100 as negative_rate
+            ')
+            ->having('rated_articles', '>=', 1)
+            ->orderByDesc('positive_rate')
+            ->orderByDesc('avg_rating')
+            ->orderByDesc('total_ratings')
+            ->limit($limit)
+            ->get();
+
+        return $authorStats->map(function ($row) {
+            return [
+                'id' => (int) $row->id,
+                'name' => $row->fullname ?: $row->username ?: 'Không rõ',
+                'username' => $row->username,
+                'level' => (int) $row->level,
+                'avg_rating' => round((float) $row->avg_rating, 2),
+                'rated_articles' => (int) $row->rated_articles,
+                'total_ratings' => (int) $row->total_ratings,
+                'positive_ratings' => (int) $row->positive_ratings,
+                'negative_ratings' => (int) $row->negative_ratings,
+                'positive_rate' => round((float) $row->positive_rate, 1),
+                'negative_rate' => round((float) $row->negative_rate, 1),
+                'stars' => $this->buildStarDisplay((float) $row->avg_rating),
+            ];
+        })->all();
+    }
+
+    private function getAuthorsByLowestRatingRatio(int $limit = 5): array
+    {
+        $authorStats = DB::table('news')
+            ->join('users', 'news.author_id', '=', 'users.id')
+            ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->where('news.Status', 1)
+            ->groupBy('users.id', 'users.fullname', 'users.username', 'users.level')
+            ->selectRaw('
+                users.id,
+                users.fullname,
+                users.username,
+                users.level,
+                AVG(news_ratings.score) as avg_rating,
+                COUNT(DISTINCT news.RowID) as rated_articles,
+                COUNT(news_ratings.id) as total_ratings,
+                SUM(CASE WHEN news_ratings.score >= 4 THEN 1 ELSE 0 END) as positive_ratings,
+                SUM(CASE WHEN news_ratings.score <= 2 THEN 1 ELSE 0 END) as negative_ratings,
+                (SUM(CASE WHEN news_ratings.score >= 4 THEN 1 ELSE 0 END) / COUNT(news_ratings.id)) * 100 as positive_rate,
+                (SUM(CASE WHEN news_ratings.score <= 2 THEN 1 ELSE 0 END) / COUNT(news_ratings.id)) * 100 as negative_rate
+            ')
+            ->having('rated_articles', '>=', 1)
+            ->orderByDesc('negative_rate')
+            ->orderBy('avg_rating')
+            ->orderByDesc('total_ratings')
+            ->limit($limit)
+            ->get();
+
+        return $authorStats->map(function ($row) {
+            return [
+                'id' => (int) $row->id,
+                'name' => $row->fullname ?: $row->username ?: 'Không rõ',
+                'username' => $row->username,
+                'level' => (int) $row->level,
+                'avg_rating' => round((float) $row->avg_rating, 2),
+                'rated_articles' => (int) $row->rated_articles,
+                'total_ratings' => (int) $row->total_ratings,
+                'positive_ratings' => (int) $row->positive_ratings,
+                'negative_ratings' => (int) $row->negative_ratings,
+                'positive_rate' => round((float) $row->positive_rate, 1),
+                'negative_rate' => round((float) $row->negative_rate, 1),
+                'stars' => $this->buildStarDisplay((float) $row->avg_rating),
+            ];
+        })->all();
+    }
+
+    private function getRatingOverview(): array
+    {
+        $distribution = NewsRating::query()
+            ->selectRaw('score, COUNT(*) as count')
+            ->groupBy('score')
+            ->pluck('count', 'score')
+            ->map(fn ($count) => (int) $count)
+            ->toArray();
+
+        $distribution = array_replace([1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], $distribution);
+        $totalRatings = array_sum($distribution);
+
+        return [
+            'total' => (int) $totalRatings,
+            'average' => round((float) (NewsRating::avg('score') ?? 0), 1),
+            'rated_articles' => News::query()->where('Status', 1)->whereHas('ratings')->count(),
+            'distribution' => $distribution,
+            'max_distribution' => max(1, max($distribution)),
+            'positive_total' => (int) (($distribution[4] ?? 0) + ($distribution[5] ?? 0)),
+            'negative_total' => (int) (($distribution[1] ?? 0) + ($distribution[2] ?? 0)),
+        ];
+    }
+
+    private function getAuthorPerformanceTable(int $limit = 12): array
+    {
+        $authors = User::query()
+            ->adminAccounts()
+            ->whereHas('authoredNews')
+            ->withCount(['authoredNews as published_count' => function ($query) {
+                $query->where('Status', 1);
+            }])
+            ->orderByDesc('published_count')
+            ->limit(max($limit, 20))
+            ->get(['id', 'fullname', 'username', 'level']);
+
+        return $authors->map(function (User $user) {
+            $newsIds = News::query()
+                ->where('Status', 1)
+                ->where('author_id', $user->id)
+                ->pluck('RowID');
+
+            $ratingRows = NewsRating::query()
+                ->whereIn('news_id', $newsIds)
+                ->selectRaw('
+                    COUNT(*) as total_ratings,
+                    AVG(score) as avg_rating,
+                    SUM(CASE WHEN score >= 4 THEN 1 ELSE 0 END) as positive_ratings,
+                    SUM(CASE WHEN score <= 2 THEN 1 ELSE 0 END) as negative_ratings
+                ')
+                ->first();
+
+            $totalRatings = (int) ($ratingRows->total_ratings ?? 0);
+            $positiveRatings = (int) ($ratingRows->positive_ratings ?? 0);
+            $negativeRatings = (int) ($ratingRows->negative_ratings ?? 0);
+
+            return [
+                'id' => (int) $user->id,
+                'name' => $user->fullname ?: $user->username ?: 'Không rõ',
+                'username' => $user->username,
+                'posts' => (int) $user->published_count,
+                'views' => (int) News::query()
+                    ->where('Status', 1)
+                    ->where('author_id', $user->id)
+                    ->sum('Views'),
+                'avg_rating' => round((float) ($ratingRows->avg_rating ?? 0), 1),
+                'total_ratings' => $totalRatings,
+                'positive_ratings' => $positiveRatings,
+                'negative_ratings' => $negativeRatings,
+                'positive_rate' => $totalRatings > 0 ? round($positiveRatings / $totalRatings * 100, 1) : 0,
+                'negative_rate' => $totalRatings > 0 ? round($negativeRatings / $totalRatings * 100, 1) : 0,
+            ];
+        })
+            ->sortByDesc('posts')
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
+    private function getTopViewedArticles(int $limit = 10): array
+    {
+        return News::query()
+            ->with(['author', 'category'])
+            ->withCount('comments')
+            ->withCount('ratings')
+            ->withAvg('ratings', 'score')
+            ->where('Status', 1)
+            ->orderByDesc('Views')
+            ->orderByDesc('RowID')
+            ->limit($limit)
+            ->get()
+            ->map(function (News $news) {
+                return [
+                    'id' => (int) $news->RowID,
+                    'title' => $news->Name ?: $news->Title ?: 'Không có tiêu đề',
+                    'category' => $news->category?->Name ?: 'Chưa phân loại',
+                    'category_id' => (int) ($news->RowIDCat ?? 0),
+                    'author' => $news->author?->fullname ?: $news->author?->username ?: ($news->Author ?: 'Không rõ'),
+                    'views' => (int) $news->Views,
+                    'comments' => (int) $news->comments_count,
+                    'rating' => round((float) ($news->ratings_avg_score ?? 0), 1),
+                    'total_ratings' => (int) $news->ratings_count,
+                    'date' => $news->Date ? \Carbon\Carbon::parse($news->Date)->format('d/m/Y') : optional($news->created_at)->format('d/m/Y'),
+                    'status' => (int) $news->Status === 1 ? 'published' : 'draft',
+                ];
+            })
+            ->all();
+    }
+
+    private function getCategoryRatingStats(): array
+    {
+        $rows = DB::table('news_cat')
+            ->leftJoin('news', function ($join) {
+                $join->on('news_cat.RowID', '=', 'news.RowIDCat')
+                    ->where('news.Status', 1);
+            })
+            ->leftJoin('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->groupBy('news_cat.RowID', 'news_cat.Name', 'news_cat.color')
+            ->orderByDesc(DB::raw('COUNT(DISTINCT news.RowID)'))
+            ->limit(6)
+            ->selectRaw('
+                news_cat.RowID as id,
+                news_cat.Name as name,
+                news_cat.color as color,
+                COUNT(DISTINCT news.RowID) as news_count,
+                COUNT(news_ratings.id) as rating_count,
+                AVG(news_ratings.score) as avg_rating
+            ')
+            ->get();
+
+        $palette = ['#d1a53d', '#60a5fa', '#34d399', '#f87171', '#a78bfa', '#fb923c'];
+
+        return $rows->values()->map(function ($row, $index) use ($palette) {
+            return [
+                'id' => (int) $row->id,
+                'name' => $row->name ?: 'Chưa phân loại',
+                'color' => $row->color ?: $palette[$index % count($palette)],
+                'news_count' => (int) $row->news_count,
+                'rating_count' => (int) $row->rating_count,
+                'avg_rating' => round((float) ($row->avg_rating ?? 0), 1),
+            ];
+        })->all();
+    }
+
+    private function getDashboardStatusDistribution(): array
+    {
+        $hotCount = 0;
+
+        if (Schema::hasTable('news_tickers')) {
+            $hotCount = NewsTicker::query()->where('Status', 1)->count();
+        } elseif (Schema::hasColumn('news', 'hot')) {
+            $hotCount = News::query()->where('hot', 1)->count();
+        }
+
+        return [
+            'published' => News::query()->where('Status', 1)->count(),
+            'pending' => NewsSchedule::query()->where('status', NewsSchedule::STATUS_PENDING)->count(),
+            'featured' => FeaturedNews::query()->active()->count(),
+            'hot' => (int) $hotCount,
+        ];
+    }
+
+    private function getRatingTrend(): array
+    {
+        $start = now()->copy()->startOfMonth()->subMonths(5);
+        $rows = NewsRating::query()
+            ->where('created_at', '>=', $start)
+            ->get(['score', 'created_at'])
+            ->groupBy(fn (NewsRating $rating) => optional($rating->created_at)->format('Y-m'));
+
+        $labels = [];
+        $data = [];
+
+        for ($date = $start->copy(); $date->lte(now()->copy()->startOfMonth()); $date->addMonth()) {
+            $key = $date->format('Y-m');
+            $labels[] = 'T' . $date->format('n');
+            $monthRatings = $rows->get($key, collect());
+            $data[] = $monthRatings->count() > 0 ? round((float) $monthRatings->avg('score'), 1) : 0;
+        }
+
+        return [
+            'labels' => $labels,
+            'data' => $data,
+        ];
+    }
+
+    private function getDashboardChartSeries(): array
+    {
+        return [
+            'today' => $this->buildDailyDashboardSeries(now()->copy()->startOfDay(), now()->copy()->startOfDay(), 'Hôm nay'),
+            'week' => $this->buildDailyDashboardSeries(now()->copy()->subDays(6)->startOfDay(), now()->copy()->startOfDay(), 'day'),
+            'month' => $this->buildDailyDashboardSeries(now()->copy()->subDays(29)->startOfDay(), now()->copy()->startOfDay(), 'short'),
+            'quarter' => $this->buildMonthlyDashboardSeries(now()->copy()->subMonths(2)->startOfMonth(), now()->copy()->startOfMonth()),
+            'year' => $this->buildMonthlyDashboardSeries(now()->copy()->subMonths(11)->startOfMonth(), now()->copy()->startOfMonth()),
+        ];
+    }
+
+    private function getDashboardDailySeries(int $days = 365): array
+    {
+        $start = now()->copy()->subDays($days - 1)->startOfDay();
+        $end = now()->copy()->startOfDay();
+        $series = $this->buildDailyDashboardSeries($start, $end, 'iso');
+
+        return [
+            'dates' => $series['keys'],
+            'labels' => $series['labels'],
+            'views' => $series['views'],
+            'posts' => $series['posts'],
+            'ratings' => $series['ratings'],
+        ];
+    }
+
+    private function buildDailyDashboardSeries(\Carbon\Carbon $start, \Carbon\Carbon $end, string $labelMode): array
+    {
+        $viewRows = NewsViewStat::query()
+            ->selectRaw('view_date, SUM(total_views) as total')
+            ->whereBetween('view_date', [$start->toDateString(), $end->toDateString()])
+            ->groupBy('view_date')
+            ->pluck('total', 'view_date');
+
+        $postRows = News::query()
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('Date', [$start->toDateString(), $end->toDateString()])
+                    ->orWhereBetween('created_at', [$start, $end->copy()->endOfDay()]);
+            })
+            ->get(['Date', 'created_at'])
+            ->groupBy(function (News $news) {
+                return $news->Date
+                    ? \Carbon\Carbon::parse($news->Date)->toDateString()
+                    : optional($news->created_at)->toDateString();
+            })
+            ->map->count();
+
+        $ratingRows = NewsRating::query()
+            ->whereBetween(DB::raw('DATE(created_at)'), [$start->toDateString(), $end->toDateString()])
+            ->get(['score', 'created_at'])
+            ->groupBy(fn (NewsRating $rating) => optional($rating->created_at)->toDateString());
+
+        $labels = [];
+        $keys = [];
+        $views = [];
+        $posts = [];
+        $ratings = [];
+
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $key = $date->toDateString();
+            $keys[] = $key;
+            $labels[] = match ($labelMode) {
+                'Hôm nay' => 'Hôm nay',
+                'day' => match ($date->dayOfWeekIso) {
+                    1 => 'T2',
+                    2 => 'T3',
+                    3 => 'T4',
+                    4 => 'T5',
+                    5 => 'T6',
+                    6 => 'T7',
+                    default => 'CN',
+                },
+                'iso' => $key,
+                default => $date->format('d/m'),
+            };
+            $views[] = (int) ($viewRows[$key] ?? 0);
+            $posts[] = (int) ($postRows[$key] ?? 0);
+            $dayRatings = $ratingRows->get($key, collect());
+            $ratings[] = $dayRatings->count() > 0 ? round((float) $dayRatings->avg('score'), 1) : 0;
+        }
+
+        return compact('keys', 'labels', 'views', 'posts', 'ratings');
+    }
+
+    private function buildMonthlyDashboardSeries(\Carbon\Carbon $start, \Carbon\Carbon $end): array
+    {
+        $rangeEnd = $end->copy()->endOfMonth();
+
+        $viewRows = NewsViewStat::query()
+            ->whereBetween('view_date', [$start->toDateString(), $rangeEnd->toDateString()])
+            ->get(['view_date', 'total_views'])
+            ->groupBy(fn (NewsViewStat $stat) => \Carbon\Carbon::parse($stat->view_date)->format('Y-m'))
+            ->map(fn ($items) => (int) $items->sum('total_views'));
+
+        $postRows = News::query()
+            ->where(function ($query) use ($start, $rangeEnd) {
+                $query->whereBetween('Date', [$start->toDateString(), $rangeEnd->toDateString()])
+                    ->orWhereBetween('created_at', [$start, $rangeEnd]);
+            })
+            ->get(['Date', 'created_at'])
+            ->groupBy(function (News $news) {
+                return $news->Date
+                    ? \Carbon\Carbon::parse($news->Date)->format('Y-m')
+                    : optional($news->created_at)->format('Y-m');
+            })
+            ->map->count();
+
+        $ratingRows = NewsRating::query()
+            ->whereBetween('created_at', [$start, $end->copy()->endOfMonth()])
+            ->get(['score', 'created_at'])
+            ->groupBy(fn (NewsRating $rating) => optional($rating->created_at)->format('Y-m'));
+
+        $keys = [];
+        $labels = [];
+        $views = [];
+        $posts = [];
+        $ratings = [];
+
+        for ($date = $start->copy(); $date->lte($end); $date->addMonth()) {
+            $key = $date->format('Y-m');
+            $keys[] = $key;
+            $labels[] = 'T' . $date->format('n');
+            $views[] = (int) ($viewRows[$key] ?? 0);
+            $posts[] = (int) ($postRows[$key] ?? 0);
+            $monthRatings = $ratingRows->get($key, collect());
+            $ratings[] = $monthRatings->count() > 0 ? round((float) $monthRatings->avg('score'), 1) : 0;
+        }
+
+        return compact('keys', 'labels', 'views', 'posts', 'ratings');
+    }
+
+    private function buildStarDisplay(float $score): array
+    {
+        $full = (int) floor($score);
+        $half = ($score - $full) >= 0.5 ? 1 : 0;
+        $empty = 5 - $full - $half;
+
+        return [
+            'full' => $full,
+            'half' => $half,
+            'empty' => max(0, $empty),
+            'score' => $score,
+        ];
+    }
+
+    private function findContactRecord($id): Contact
+    {
+        return Contact::query()->findOrFail($id);
+    }
+
+    private function saveSystemRow(string $code, string $description): void
+    {
+        $row = System::where('Code', $code)->first();
+        if (!$row) {
+            $row = new System();
+            $row->Code = $code;
+        }
+        $row->Description = $description;
+        if (Schema::hasColumn('system', 'Status')) {
+            $row->Status = 1;
+        }
+        $row->save();
+    }
+
+    private function storeSystemUpload($file, string $dir, array $allowedExt): string
+    {
+        if (!$file || !$file->isValid()) {
+            return '';
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, $allowedExt, true)) {
+            return '';
+        }
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $name = rand(100000000, 999999999) . '-' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+        $file->move($dir, $name);
+
+        return $name;
+    }
+
+    private function storePageImage($file, ?string $oldImage): string
+    {
+        if (!$file || !$file->isValid()) {
+            return '';
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
+            return '';
+        }
+
+        $dir = 'images/page';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        if ($oldImage && file_exists($dir . '/' . $oldImage)) {
+            @unlink($dir . '/' . $oldImage);
+        }
+
+        $name = rand(100000000, 999999999) . '-' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+        $file->move($dir, $name);
+
+        return $name;
+    }
+
+    private function storeSliderImage($file, ?string $oldImage = null): string
+    {
+        if (!$file || !$file->isValid()) {
+            return '';
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
+            return '';
+        }
+
+        $dir = 'images/slider';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        if ($oldImage && file_exists($dir . '/' . $oldImage)) {
+            @unlink($dir . '/' . $oldImage);
+        }
+
+        $name = rand(100000000, 999999999) . '-' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+        $file->move($dir, $name);
+
+        return $name;
+    }
+
+    private function processNewsImage($file, ?string $oldImage): string
+    {
+        if (!$file->isValid()) {
+            return '';
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'], true)) {
+            return '';
+        }
+
+        $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $safeBase = preg_replace('/[^a-zA-Z0-9._-]/', '', $basename);
+        if ($safeBase === '') {
+            $safeBase = 'image';
+        }
+        $name = random_int(100000000, 999999999) . '-' . $safeBase . '.' . $ext;
+
+        $newsRoot = public_path('images/news');
+        $day = date('Ymd');
+        $dayDir = $newsRoot . DIRECTORY_SEPARATOR . $day;
+        $tempDir = $newsRoot . DIRECTORY_SEPARATOR . 'temp';
+
+        foreach ([$newsRoot, $tempDir, $dayDir] as $dir) {
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+        }
+
+        if ($oldImage) {
+            $oldFull = public_path('images/news/' . $oldImage);
+            if (is_file($oldFull)) {
+                @unlink($oldFull);
+            }
+        }
+
+        $tempFull = $tempDir . DIRECTORY_SEPARATOR . $name;
+        $destFull = $dayDir . DIRECTORY_SEPARATOR . $name;
+
+        $file->move($tempDir, $name);
+
+        try {
+            if ($ext === 'svg') {
+                rename($tempFull, $destFull);
+            } else {
+                $img = Image::make($tempFull);
+
+                // Keep article covers sharp enough for large hero layouts.
+                $img->orientate();
+
+                $maxWidth = 2400;
+                $maxHeight = 1600;
+
+                if ($img->width() > $maxWidth || $img->height() > $maxHeight) {
+                    $img->resize($maxWidth, $maxHeight, function ($constraint) {
+                        $constraint->aspectRatio();
+                        $constraint->upsize();
+                    });
+                }
+
+                if (in_array($ext, ['jpg', 'jpeg', 'webp'], true)) {
+                    $img->save($destFull, 90);
+                } else {
+                    $img->save($destFull);
+                }
+
+                if (is_file($tempFull)) {
+                    @unlink($tempFull);
                 }
             }
-
-            $file->move('images/slider', $name);
-            $img = Image::make('images/slider/' . $name);
-
-            // kiểm tra, nếu không tồn tại thì tạo folder
-            $filePath = "images/slider/" . date("Ymd");
-            if (!file_exists($filePath)) {
-                mkdir("images/slider/" . date("Ymd"), 0777, true);
-            }
-
-            $img->fit(1920, 760);
-            $img->save('images/slider/' . date("Ymd") . '/' . $name);
-
-            // delete images upload
-            if (file_exists('images/slider/' . $name)) {
-                unlink('images/slider/' . $name);
-            }
-            $Slider->Images = date('Ymd') . '/' . $name;
-        }
-
-
-        $Flag = $Slider->save();
-
-        if ($Flag == true) {
-            return redirect('admin/slider/edit/' . $RowID)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa slidershow thành công'
-            ]);
-        } else {
-            return redirect('admin/slider/list/' . $RowID)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa slideshow'
-            ]);
-        }
-    }
-
-    /* slider -----------------------------------------------------------------*/
-
-
-
-
-
-    // Quản lý trang----------------------------
-    public function page_list()
-    {
-        $page = Page::get();
-        return view('back.page.list', compact('page')); // Sửa 'Page' thành 'page'
-    }
-
-    public function page_edit(Request $request, $id)
-    {
-        $page = Page::find($id);
-        return view('back.page.edit', compact('page'));
-    }
-    public function page_edit_post(Request $request, $id)
-    {
-        if ($request->Name == '') {
-            return redirect('admin/page/edit/' . $id)->with(['flash_level' => 'danger', 'flash_message' => 'Vui lòng điền vào các trường có dấu *']);
-        }
-
-        $Page = Page::find($id);
-        $Page->Name = $request->Name;
-        $Page->Alias = $request->Alias;
-        $Page->Status = $request->Status;
-        $Page->Font = $request->Font;
-        $Page->Sort = $request->Sort;
-
-        $Page->MetaTitle = $request->MetaTitle;
-        $Page->MetaDescription = $request->MetaDescription;
-        $Page->MetaKeyword = $request->MetaKeyword;
-        $Page->Description = $request->Description;
-
-        // the images
-        if ($request->hasFile('Images')) {
-            $file = $request->file('Images');
-            $random_digit = rand(00000000, 99999999);
-            $name = $random_digit . '_' . $file->getClientOriginalName();
-            $duoi = strtolower($file->getClientOriginalExtension());
-
-            if ($duoi != 'png' && $duoi != 'jpg' && $duoi != 'jpeg' && $duoi != 'svg') {
-                return back()->with(['flash_level' => 'danger', 'flash_message' => 'Phần mở rộng ảnh không được hỗ trợ.']);
-            }
-
-            // xóa ảnh đại diện cũ
-            if ($Page->Images != '') {
-                if (file_exists('images/page/' . $Page->Images)) {
-                    unlink('images/page/' . $Page->Images);
+        } catch (\Throwable $e) {
+            if (is_file($tempFull)) {
+                if (!is_file($destFull)) {
+                    @rename($tempFull, $destFull);
+                } else {
+                    @unlink($tempFull);
                 }
             }
+        }
 
+        return $day . '/' . $name;
+    }
 
-            $file->move('images/page', $name);
+    private function syncNewsTags(int $newsId, $tagIds): void
+    {
+        if (is_string($tagIds)) {
+            $tagIds = explode(',', $tagIds);
+        }
 
-            $img = Image::make('images/page/' . $name);
-            // check folder images exist
-            $filePath = "images/page/" . date('Ymd');
-            if (!file_exists($filePath)) {
-                mkdir("images/page/" . date('Ymd'), 0777, true);
+        DB::table('news_tags')->where('news_id', $newsId)->delete();
+
+        foreach ($tagIds as $tagName) {
+            $tagName = trim($tagName);
+            if ($tagName === '') continue;
+
+            $tag = Tag::findOrCreateByName($tagName);
+            DB::table('news_tags')->insert([
+                'news_id'    => $newsId,
+                'tag_id'     => $tag->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $tag->incrementPopular();
+        }
+    }
+
+    private function createOrUpdateSchedule(
+        int $newsId,
+        string $publishType,
+        ?string $scheduledAt,
+        ?string $status,
+        bool $updateExisting = false
+    ): void {
+        $schedule = NewsSchedule::where('news_id', $newsId)->first();
+
+        if (!$schedule) {
+            $schedule = new NewsSchedule();
+            $schedule->news_id = $newsId;
+            $schedule->created_by = Auth::id();
+        } elseif (!$schedule->created_by) {
+            $schedule->created_by = Auth::id();
+        }
+
+        $schedule->publish_type = $publishType;
+        $schedule->status = $status ?? NewsSchedule::STATUS_DRAFT;
+
+        if ($publishType === NewsSchedule::PUBLISH_SCHEDULE) {
+            $schedule->scheduled_at = $scheduledAt ? \Carbon\Carbon::parse($scheduledAt) : null;
+            $schedule->published_at = null;
+        } else {
+            $schedule->scheduled_at = null;
+            $schedule->published_at = $schedule->status === NewsSchedule::STATUS_PUBLISHED ? ($schedule->published_at ?? now()) : null;
+        }
+
+        $schedule->save();
+    }
+
+    private function resolveScheduleStatusForAction(string $submitAction): string
+    {
+        return match ($submitAction) {
+            'submit_review' => NewsSchedule::STATUS_PENDING,
+            'publish_now' => NewsSchedule::STATUS_PUBLISHED,
+            default => NewsSchedule::STATUS_DRAFT,
+        };
+    }
+
+    private function saveCategoryImage(NewsCategory $cat, $file): void
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+            return;
+        }
+
+        $dir = public_path('images/category');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        if ($cat->image) {
+            $old = $dir . '/' . $cat->image;
+            if (is_file($old)) {
+                @unlink($old);
             }
-            $img->fit(300, 250);
-            $img->save('images/page/' . date('Ymd') . '/' . $name);
-
-            // delete images upload
-            if (file_exists('images/page/' . $name)) {
-                unlink('images/page/' . $name);
-            }
-
-            $Page->Images = date('Ymd') . '/' . $name;
         }
 
-
-        $Flag = $Page->save();
-
-        if ($Flag == true) {
-            return redirect('admin/page/edit/' . $id)->with(['flash_level' => 'success', 'flash_message' => 'Chỉnh sửa trang thành công']);
-        } else {
-            return redirect('admin/page/edit/' . $id)->with(['flash_level' => 'danger', 'flash_message' => 'Lỗi chỉnh sửa trang']);
-        }
-    }
-
-    // Quản lý trang----------------------------
-
-    // quản lý nhận tin khuyến mại-----------
-    public function newsletter_list()
-    {
-        $Newsletter = NewsLetter::get();
-        return view('back.newsletter.list', compact('Newsletter'));
-    }
-
-    public function newsletter_edit(Request $request, $id)
-    {
-        $Newsletter = NewsLetter::find($id);
-        return view('back.newsletter.edit', compact('Newsletter'));
-    }
-
-    public function newsletter_edit_post(Request $request, $id)
-    {
-        if ($request->Email == '') {
-            return redirect('admin/newsletter/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $Newsletter = NewsLetter::find($id);
-        $Newsletter->Email = $request->Email;
-        $Newsletter->IsViews = $request->IsViews;
-        $Flag = $Newsletter->save();
-
-        if ($Flag == true) {
-            return redirect('admin/newsletter/edit/' . $id)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa email khuyến mại thành công'
-            ]);
-        } else {
-            return redirect('admin/newsletter/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa email khuyến mại'
-            ]);
-        }
-    }
-    public function newsletter_delete(Request $request, $id)
-    {
-        $Newsletter = Newsletter::find($id);
-        $Flag = $Newsletter->delete();
-
-        if ($Flag == true) {
-            return redirect('admin/newsletter/list')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Xóa email khuyến mại thành công'
-            ]);
-        } else {
-            return redirect('admin/newsletter/list')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi xóa email khuyến mại'
-            ]);
-        }
-    }
-    // quản lý nhận tin khuyến mại-----------
-
-
-    // Contact management
-    public function contact_list()
-    {
-        $Contact = Contact::orderBy('RowID', 'DESC')->get();
-        return view('back.contact.list', compact('Contact'));
-    }
-
-    public function contact_edit(Request $request, $id)
-    {
-        $Contact = Contact::find($id);
-        return view('back.contact.edit', compact('Contact'));
-    }
-
-    public function contact_edit_post(Request $request, $id)
-    {
-        if ($request->Name1 == '' || $request->Email == '' || $request->txtPhone == '' || $request->Message == '') {
-            return redirect('admin/contact/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $Contact = Contact::find($id);
-        $Contact->Name = $request->Name1;
-        $Contact->Email = $request->Email;
-        $Contact->Phone = $request->txtPhone;
-        $Contact->IsViews = $request->IsViews;
-        $Flag = $Contact->save();
-
-
-        if ($Flag == true) {
-            return redirect('admin/contact/edit/' . $id)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa liên hệ thành công'
-            ]);
-        } else {
-            return redirect('admin/contact/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa liên hệ'
-            ]);
-        }
-    }
-
-    public function contact_delete(Request $request, $id)
-    {
-        $Contact = Contact::find($id);
-        $Flag = $Contact->delete();
-
-        if ($Flag == true) {
-            return redirect('admin/contact/list')->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Xóa liên hệ thành công'
-            ]);
-        } else {
-            return redirect('admin/contact/list')->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi xóa liên hệ'
-            ]);
-        }
-    }
-    #Quản lý liên hệ-------------        
-
-
-
-
-
-
-
-    // social management
-    public function social_list()
-    {
-        $Social = Social::get();
-
-        return view('back.social.list', compact('Social'));
-    }
-
-    public function social_edit(Request $request, $id)
-    {
-        $Social = Social::find($id);
-        return view('back.social.edit', compact('Social'));
-    }
-    public function social_edit_post(Request $request, $id)
-    {
-        if ($request->Name == '' || $request->Font == '') {
-            return redirect('admin/social/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Vui lòng điền vào các trường có dấu *'
-            ]);
-        }
-
-        $Social = Social::find($id);
-        $Social->Name = $request->Name;
-        $Social->Alias = $request->Alias;
-        $Social->Status = $request->Status;
-        $Social->Font = $request->Font;
-        $Social->Sort = $request->Sort;
-        $Flag = $Social->save();
-
-        if ($Flag == true) {
-            return redirect('admin/social/edit/' . $id)->with([
-                'flash_level' => 'success',
-                'flash_message' => 'Chỉnh sửa mạng xã hội thành công'
-            ]);
-        } else {
-            return redirect('admin/social/edit/' . $id)->with([
-                'flash_level' => 'danger',
-                'flash_message' => 'Lỗi chỉnh sửa mạng xã hội'
-            ]);
-        }
+        $name = time() . '-' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+        $file->move($dir, $name);
+        $cat->image = $name;
+        $cat->save();
     }
 }

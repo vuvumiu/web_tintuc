@@ -1,62 +1,109 @@
 @extends('back.template.master')
 
-@section('title', 'Quản lý nhân viên')
-
-@section('heading', 'Thêm nhân viên')
+@section('title', 'Them tai khoan noi bo')
+@section('heading', 'Them tai khoan noi bo')
+@section('admin-manager', 'menu-open')
+@section('admin-manager-add', 'active')
 
 @section('content')
 <div class="col-md-12">
-    <!-- general form elements -->
-    <div class="card card-primary">
-      <!-- /.card-header -->
-      <!-- form start -->
-      <form role="form" action="{{ url('admin/staff/add') }}" method="POST">
-        <div class="card-body">
-            {!! csrf_field() !!}
-
-            <div class="form-group">
-              <select class="form-control" name="level">
-                  @if(isset($UserLevel) && count($UserLevel) > 0)
-                      @foreach($UserLevel as $k => $v)
-                          <option value="{{ $v->id }}">Cấp bậc: {{ $v->name }}</option>
-                      @endforeach
-                  @endif
-              </select>
-          </div>
-                   
-          <div class="form-group">
-            <label for="exampleInputEmail1">Họ và tên <span class="color_red">*</span></label>
-            <input type="text" class="form-control" name="fullname">
-          </div>
-          <div class="form-group">
-            <label for="exampleInputEmail1">Email <span class="color_red">*</span></label>
-            <input type="email" class="form-control" name="email">
-          </div>
-          <div class="form-group">
-            <label for="exampleInputEmail1">Số điện thoại <span class="color_red">*</span></label>
-            <input type="text" class="form-control" name="phone">
-          </div>
-          <div class="form-group">
-            <label for="exampleInputEmail1">Địa chỉ</label>
-            <input type="text" class="form-control" name="address">
-          </div>
-          <div class="form-group">
-            <label for="exampleInputEmail1">Tài khoản <span class="color_red">*</span></label>
-            <input type="text" class="form-control" name="username">
-          </div>
-          <div class="form-group">
-            <label for="exampleInputPassword1">Password <span class="color_red">*</span></label>
-            <input type="password" class="form-control" name="password" id="password">
-          </div>
-        </div>
-        <!-- /.card-body -->
-
-        <div class="card-footer">
-          <button type="submit" class="btn btn-primary">Thêm</button>
-        </div>
-      </form>
+    <div class="mb-3">
+        <a href="{{ url('admin/admin-manager/list') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Quay lai danh sach
+        </a>
     </div>
-    <!-- /.card -->
 
-  </div>
+    <div class="card card-primary">
+        <form role="form" action="{{ url('admin/admin-manager/add') }}" method="POST">
+            <div class="card-body">
+                @csrf
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="level">Cap bac <span class="text-red">*</span></label>
+                            <select class="form-control" name="level">
+                                @foreach($UserLevel as $level)
+                                    <option value="{{ $level->id }}">{{ $level->name }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">
+                                Quan tri vien co toan quyen. Nhan vien su dung cac module noi dung duoc cap phep.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="is_active">Trang thai</label>
+                            <select class="form-control" name="is_active">
+                                <option value="1">Hoat dong</option>
+                                <option value="0">Bi khoa</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="is_author">La tac gia</label>
+                            @if(Auth::user()->isAdmin())
+                                <select class="form-control" name="is_author">
+                                    <option value="0">Khong</option>
+                                    <option value="1">Co</option>
+                                </select>
+                            @else
+                                <input type="hidden" name="is_author" value="0">
+                                <input type="text" class="form-control" value="Chi admin duoc thay doi" disabled>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fullname">Ho va ten <span class="text-red">*</span></label>
+                    <input type="text" class="form-control" name="fullname" placeholder="Nhap ho va ten day du" value="{{ old('fullname') }}">
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="email">Email <span class="text-red">*</span></label>
+                            <input type="email" class="form-control" name="email" placeholder="Nhap dia chi email" value="{{ old('email') }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="phone">So dien thoai <span class="text-red">*</span></label>
+                            <input type="text" class="form-control" name="phone" placeholder="Nhap so dien thoai" value="{{ old('phone') }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Dia chi</label>
+                    <input type="text" class="form-control" name="address" placeholder="Nhap dia chi" value="{{ old('address') }}">
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="username">Tai khoan <span class="text-red">*</span></label>
+                            <input type="text" class="form-control" name="username" placeholder="Ten dang nhap duy nhat" value="{{ old('username') }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="password">Mat khau <span class="text-red">*</span></label>
+                            <input type="password" class="form-control" name="password" id="password" placeholder="Mat khau it nhat 6 ky tu">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> Tao tai khoan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 @stop

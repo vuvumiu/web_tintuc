@@ -22,35 +22,50 @@
         <div class="card-body">
             {!! csrf_field() !!}
 
+            @if ($errors->any())
+            <div class="alert alert-danger">
+              <ul class="mb-0 pl-3">
+                @foreach ($errors->all() as $err)
+                  <li>{{ $err }}</li>
+                @endforeach
+              </ul>
+            </div>
+            @endif
+
             <div class="form-group">
-              <select class="form-control" name="Status">
-                  <option value="1" @if($Social->Status == 1) selected="" @endif> 
+              <select class="form-control @error('Status') is-invalid @enderror" name="Status">
+                  <option value="1" @if((string) old('Status', $Social->Status) === '1') selected @endif>
                       Trạng thái: Bật
                   </option>
-                  <option value="0" @if($Social->Status == 0) selected="" @endif> 
+                  <option value="0" @if((string) old('Status', $Social->Status) === '0') selected @endif>
                       Trạng thái: Tắt
                   </option>
               </select>
+              @error('Status')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
           </div>
           
           <div class="form-group">
-              <label for="exampleInputEmail1">Đường dẫn <span class="color_red">*</span></label>
-              <input type="text" class="form-control" name="Alias" value="{{$Social->Alias}}">
+              <label for="social-alias">Đường dẫn <span class="color_red">*</span></label>
+              <input type="text" class="form-control @error('Alias') is-invalid @enderror" id="social-alias" name="Alias" value="{{ old('Alias', $Social->Alias) }}" placeholder="https://...">
+              @error('Alias')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
           </div>
 
           <div class="form-group">
-            <label for="exampleInputEmail1">Tên mạng xã hội <span class="color_red">*</span></label>
-            <input type="text" class="form-control" name="Name" value="{{$Social->Name}}">
+            <label for="social-name">Tên mạng xã hội <span class="color_red">*</span></label>
+            <input type="text" class="form-control @error('Name') is-invalid @enderror" id="social-name" name="Name" value="{{ old('Name', $Social->Name) }}">
+            @error('Name')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
         </div>
           
           <div class="form-group">
-              <label for="exampleInputEmail1">Font <span class="color_red">*</span></label>
-              <input type="text" class="form-control" name="Font" value="{{$Social->Font}}">
+              <label for="social-font">Font <span class="color_red">*</span></label>
+              <input type="text" class="form-control @error('Font') is-invalid @enderror" id="social-font" name="Font" value="{{ old('Font', $Social->Font) }}">
+              @error('Font')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
           </div>
           
           <div class="form-group">
-              <label for="exampleInputEmail1">Sắp xếp</label>
-              <input type="number" class="form-control" name="Sort" value="{{$Social->Sort}}">
+              <label for="social-sort">Sắp xếp</label>
+              <input type="number" min="0" class="form-control @error('Sort') is-invalid @enderror" id="social-sort" name="Sort" value="{{ old('Sort', $Social->Sort) }}">
+              @error('Sort')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
           </div>
         </div>
           

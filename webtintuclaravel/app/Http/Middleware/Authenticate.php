@@ -15,7 +15,11 @@ class Authenticate extends Middleware
     protected function redirectTo($request)
     {
         if (!$request->expectsJson()) {
-            return route('login');
+            // Nếu đang truy cập admin/* thì redirect về trang login admin
+            if ($request->is('admin/*')) {
+                return route('admin.login');
+            }
+            return route('dangnhap');
         }
     }
 }

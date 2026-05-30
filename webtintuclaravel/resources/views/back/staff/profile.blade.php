@@ -36,7 +36,7 @@
           </div>
           <div class="form-group">
             <label for="exampleInputPassword1">Password</label>
-            <input type="password" class="form-control" id="password">
+            <input type="password" class="form-control" name="password" id="password" autocomplete="new-password">
             <p class="ad_note_password">Để trống trường này nếu không muốn thay đổi mật khẩu.</p>
           </div>
         </div>
