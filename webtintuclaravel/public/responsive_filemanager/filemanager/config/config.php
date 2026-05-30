@@ -75,7 +75,7 @@ $config = array(
     | with start and final /
     |
     */
-    'upload_dir' => '/shopbanhanglaravel/responsive_filemanager/source/',
+    'upload_dir' => '/webtintuc/responsive_filemanager/source/',
     /*
     |--------------------------------------------------------------------------
     | relative path from filemanager folder to upload folder

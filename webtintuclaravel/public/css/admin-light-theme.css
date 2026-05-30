@@ -1,0 +1,2607 @@
+/**
+ * Light Theme CSS – VN•XPRESS SCF Premium Light
+ * Warm cream/gold design matching reference mockup
+ */
+
+/* ======================================================
+   1. CSS CUSTOM PROPERTIES – LIGHT PALETTE
+   ====================================================== */
+body.vu-theme-light {
+    /* Override admin-dashboard.css variables */
+    --bg-primary: #f8f5ef;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #ffffff;
+    --bg-quaternary: #ffffff;
+    --bg-hover: rgba(185,148,46,0.06);
+    --bg-soft: rgba(0,0,0,0.02);
+    --border-subtle: rgba(0,0,0,0.07);
+    --border-strong: rgba(185,148,46,0.25);
+    --text-primary: #1a1d26;
+    --text-secondary: #4a5060;
+    --text-muted: #7c8494;
+    --text-soft: #a0a8b8;
+    --accent-gold: #c9a23c;
+    --accent-gold-light: #ddb94e;
+    --accent-gold-soft: rgba(201,162,60,0.10);
+    --accent-blue: #3b7dd8;
+    --accent-green: #2d8b5a;
+    --accent-red: #c94040;
+    --accent-purple: #7c4dab;
+    --status-danger: #c94040;
+    --status-warning: #c9a23c;
+    --status-success: #2d8b5a;
+    --status-info: #3b7dd8;
+    --shadow-gold: 0 4px 16px rgba(185,148,46,0.18);
+    --bg-card: #ffffff;
+    --bg-card-hover: #faf8f4;
+    --bg-input: #f4f1ea;
+    /* Dashboard shortcuts */
+    --dash-bg: #f8f5ef;
+    --dash-surface: #ffffff;
+    --dash-surface2: #f4f1ea;
+    --dash-surface3: #ebe7de;
+    --dash-border: rgba(0,0,0,0.07);
+    --dash-gold: #c9a23c;
+    --dash-gold-light: #ddb94e;
+    --dash-green: #2d8b5a;
+    --dash-red: #c94040;
+    --dash-blue: #3b7dd8;
+    --dash-purple: #7c4dab;
+    --dash-orange: #c96a1a;
+    --dash-text: #1a1d26;
+    --dash-text-muted: #7c8494;
+    --dash-text-dim: #4a5060;
+    --shadow-light: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Also override the :root-level vars for admin-light-theme.css consumers */
+body.vu-theme-light.vu-admin-body {
+    --bg: #f8f5ef;
+    --surface: #ffffff;
+    --surface2: #f4f1ea;
+    --surface3: #ebe7de;
+    --border: rgba(0,0,0,0.07);
+    --border-active: rgba(185,148,46,0.40);
+    --text: #1a1d26;
+    --text-muted: #7c8494;
+    --text-dim: #5a6272;
+    --gold: #c9a23c;
+    --gold-light: #ddb94e;
+    --gold-dim: rgba(201,162,60,0.10);
+    --green: #2d8b5a;
+    --green-dim: rgba(45,139,90,0.10);
+    --red: #c94040;
+    --red-dim: rgba(201,64,64,0.10);
+    --blue: #3b7dd8;
+    --blue-dim: rgba(59,125,216,0.10);
+    --purple: #7c4dab;
+    --purple-dim: rgba(124,77,171,0.10);
+    --orange: #c96a1a;
+    --orange-dim: rgba(201,106,26,0.10);
+    --radius: 12px;
+    --radius-sm: 8px;
+}
+
+
+/* ======================================================
+   2. BODY & SHELL
+   ====================================================== */
+body.vu-theme-light.vu-admin-body {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+body.vu-theme-light .vu-admin-shell {
+    background: var(--bg) !important;
+}
+
+
+/* ======================================================
+   3. SIDEBAR – Keep dark with warm undertone
+   ====================================================== */
+body.vu-theme-light .sidebar {
+    background: #1b2030 !important;
+    border-right: 1px solid rgba(0,0,0,0.18) !important;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.08) !important;
+}
+
+body.vu-theme-light .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12) !important;
+}
+
+body.vu-theme-light .sidebar::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04) !important;
+}
+
+body.vu-theme-light .sb-logo {
+    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+body.vu-theme-light .sb-logo-icon {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    color: #111 !important;
+}
+
+body.vu-theme-light .sb-logo-text {
+    color: #ffffff !important;
+}
+
+body.vu-theme-light .sb-logo-text span {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .sb-logo-subtext {
+    color: rgba(255,255,255,0.38) !important;
+}
+
+body.vu-theme-light .sb-section-label {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .sb-section-label::before {
+    background: var(--gold) !important;
+}
+
+body.vu-theme-light .sb-item,
+body.vu-theme-light .sb-subitem {
+    color: rgba(255,255,255,0.52) !important;
+}
+
+body.vu-theme-light .sb-item:hover,
+body.vu-theme-light .sb-subitem:hover {
+    background: rgba(255,255,255,0.06) !important;
+    color: rgba(255,255,255,0.90) !important;
+}
+
+body.vu-theme-light .sb-item.active,
+body.vu-theme-light .sb-item.is-open,
+body.vu-theme-light .sb-subitem.active {
+    background: rgba(201,162,60,0.14) !important;
+    color: var(--gold) !important;
+    border: 1px solid rgba(201,162,60,0.22) !important;
+}
+
+body.vu-theme-light .sb-item.active::before,
+body.vu-theme-light .sb-item.is-open::before,
+body.vu-theme-light .sb-subitem.active::before {
+    background: var(--gold) !important;
+}
+
+body.vu-theme-light .sb-badge {
+    background: rgba(201,162,60,0.18) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .sb-badge-red {
+    background: rgba(201,64,64,0.18) !important;
+    color: #e06060 !important;
+}
+
+body.vu-theme-light .sb-arrow {
+    color: rgba(255,255,255,0.28) !important;
+}
+
+body.vu-theme-light .sb-footer {
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+body.vu-theme-light .sb-user-info .name {
+    color: #ffffff !important;
+}
+
+body.vu-theme-light .sb-user-info .role {
+    color: var(--gold) !important;
+    background: rgba(201,162,60,0.14) !important;
+    padding: 1px 6px !important;
+    border-radius: 4px !important;
+}
+
+body.vu-theme-light .sb-avatar,
+body.vu-theme-light .uc-avatar {
+    color: #111 !important;
+    background: linear-gradient(135deg, var(--gold), #8b5e10) !important;
+}
+
+
+/* ======================================================
+   4. TOPBAR
+   ====================================================== */
+body.vu-theme-light .topbar {
+    background: var(--surface) !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .topbar-title {
+    color: var(--text) !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .topbar-breadcrumb {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .topbar-breadcrumb span {
+    color: var(--gold) !important;
+}
+
+/* Search box */
+body.vu-theme-light .t-search {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .t-search svg circle,
+body.vu-theme-light .t-search svg line {
+    stroke: var(--text-muted) !important;
+}
+
+body.vu-theme-light .t-search input {
+    color: var(--text) !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+}
+
+body.vu-theme-light .t-search input::placeholder {
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .t-search:focus-within {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 3px rgba(201,162,60,0.08) !important;
+}
+
+/* Icon buttons */
+body.vu-theme-light .icon-btn {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .icon-btn:hover {
+    color: var(--gold) !important;
+    border-color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+/* User chip */
+body.vu-theme-light .user-chip {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .user-chip:hover {
+    border-color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+body.vu-theme-light .uc-name {
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .notif-dot {
+    border-color: var(--surface) !important;
+}
+
+body.vu-theme-light .admin-badge {
+    color: #ffffff !important;
+    background: var(--gold) !important;
+}
+
+/* Theme toggle */
+body.vu-theme-light .theme-toggle-btn {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .theme-toggle-btn:hover {
+    color: var(--gold) !important;
+    border-color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+/* Topbar dropdown */
+body.vu-theme-light .topbar-menu-dropdown {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.10) !important;
+    border-radius: var(--radius) !important;
+}
+
+body.vu-theme-light .topbar-menu-dropdown__head,
+body.vu-theme-light .topbar-menu-dropdown__foot {
+    border-color: var(--border) !important;
+}
+
+body.vu-theme-light .topbar-menu-dropdown__head strong {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .topbar-menu-item {
+    border-bottom-color: var(--border) !important;
+}
+
+body.vu-theme-light .topbar-menu-item:hover {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .topbar-menu-item__icon {
+    background: var(--gold-dim) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .topbar-menu-item__title {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .topbar-menu-item__meta {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .topbar-menu-link {
+    color: var(--gold) !important;
+}
+
+
+/* ======================================================
+   5. FOOTER
+   ====================================================== */
+body.vu-theme-light .main-footer {
+    background: var(--surface) !important;
+    border-top: 1px solid var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   6. CONTENT AREA
+   ====================================================== */
+body.vu-theme-light .content {
+    background: var(--bg) !important;
+    padding: 24px !important;
+}
+
+
+/* ======================================================
+   7. PAGE HEADING
+   ====================================================== */
+body.vu-theme-light .header-row,
+body.vu-theme-light .vu-page-heading {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+}
+
+body.vu-theme-light .greeting h1,
+body.vu-theme-light .vu-page-heading h1 {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .greeting p,
+body.vu-theme-light .vu-page-heading p {
+    font-size: 13px !important;
+    color: var(--text-muted) !important;
+    margin-top: 3px !important;
+}
+
+body.vu-theme-light .welcome-text h2 {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .welcome-text p {
+    font-size: 13px !important;
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   8. STAT CARDS & PANELS
+   ====================================================== */
+body.vu-theme-light .stat-card,
+body.vu-theme-light .panel,
+body.vu-theme-light .card,
+body.vu-theme-light .small-box {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .stat-card {
+    padding: 18px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s !important;
+}
+
+body.vu-theme-light .stat-card:hover {
+    border-color: rgba(201,162,60,0.30) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Stat card colored top accent bar */
+body.vu-theme-light .stat-card.gold::before   { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); }
+body.vu-theme-light .stat-card.green::before  { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--green), #4caf7a); }
+body.vu-theme-light .stat-card.blue::before   { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--blue), #6ea8e8); }
+body.vu-theme-light .stat-card.red::before    { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--red), #e07070); }
+body.vu-theme-light .stat-card.purple::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--purple), #a070d0); }
+body.vu-theme-light .stat-card.orange::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--orange), #e8944a); }
+
+body.vu-theme-light .stat-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+}
+
+body.vu-theme-light .stat-label {
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .stat-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+}
+
+body.vu-theme-light .stat-card.gold .stat-icon   { background: rgba(201,162,60,0.12); color: var(--gold); }
+body.vu-theme-light .stat-card.green .stat-icon  { background: rgba(45,139,90,0.12); color: var(--green); }
+body.vu-theme-light .stat-card.blue .stat-icon   { background: rgba(59,125,216,0.12); color: var(--blue); }
+body.vu-theme-light .stat-card.red .stat-icon    { background: rgba(201,64,64,0.12); color: var(--red); }
+body.vu-theme-light .stat-card.purple .stat-icon { background: rgba(124,77,171,0.12); color: var(--purple); }
+body.vu-theme-light .stat-card.orange .stat-icon { background: rgba(201,106,26,0.12); color: var(--orange); }
+
+body.vu-theme-light .stat-value {
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--text) !important;
+    margin-bottom: 6px !important;
+}
+
+body.vu-theme-light .stat-card.gold .stat-value   { color: var(--gold) !important; }
+body.vu-theme-light .stat-card.green .stat-value  { color: var(--green) !important; }
+body.vu-theme-light .stat-card.blue .stat-value   { color: var(--blue) !important; }
+body.vu-theme-light .stat-card.red .stat-value    { color: var(--red) !important; }
+body.vu-theme-light .stat-card.purple .stat-value { color: var(--purple) !important; }
+body.vu-theme-light .stat-card.orange .stat-value { color: var(--orange) !important; }
+
+body.vu-theme-light .stat-meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+body.vu-theme-light .stat-change {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+}
+
+body.vu-theme-light .stat-change.up {
+    background: var(--green-dim) !important;
+    color: var(--green) !important;
+}
+
+body.vu-theme-light .stat-change.down {
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+}
+
+body.vu-theme-light .stat-period {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .stat-sub {
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid var(--border) !important;
+    display: flex !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+body.vu-theme-light .stat-sub-item {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .stat-sub-item span {
+    color: var(--text) !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .stat-bar {
+    margin-top: 12px !important;
+    height: 4px !important;
+    background: var(--surface3) !important;
+    border-radius: 2px !important;
+    overflow: hidden !important;
+}
+
+body.vu-theme-light .stat-bar-fill {
+    height: 100% !important;
+    border-radius: 2px !important;
+}
+
+body.vu-theme-light .stat-card.gold .stat-bar-fill   { background: linear-gradient(90deg, var(--gold), var(--gold-light)) !important; }
+body.vu-theme-light .stat-card.green .stat-bar-fill  { background: linear-gradient(90deg, var(--green), #4caf7a) !important; }
+body.vu-theme-light .stat-card.blue .stat-bar-fill   { background: linear-gradient(90deg, var(--blue), #6ea8e8) !important; }
+body.vu-theme-light .stat-card.red .stat-bar-fill    { background: linear-gradient(90deg, var(--red), #e07070) !important; }
+body.vu-theme-light .stat-card.purple .stat-bar-fill { background: linear-gradient(90deg, var(--purple), #a070d0) !important; }
+body.vu-theme-light .stat-card.orange .stat-bar-fill { background: linear-gradient(90deg, var(--orange), #e8944a) !important; }
+
+/* Gradient bars in stat cards */
+body.vu-theme-light .bar-gold  { background: linear-gradient(90deg, var(--gold), var(--gold-light)) !important; }
+body.vu-theme-light .bar-blue  { background: linear-gradient(90deg, var(--blue), #6ea8e8) !important; }
+body.vu-theme-light .bar-green { background: linear-gradient(90deg, var(--green), #4caf7a) !important; }
+body.vu-theme-light .bar-red   { background: linear-gradient(90deg, var(--red), #e07070) !important; }
+
+
+/* ======================================================
+   9. PANELS / CARDS
+   ====================================================== */
+body.vu-theme-light .panel-head,
+body.vu-theme-light .card-header,
+body.vu-theme-light .dash-panel-head {
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
+    padding: 15px 20px !important;
+}
+
+body.vu-theme-light .panel-title,
+body.vu-theme-light .card-title {
+    color: var(--text) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .panel-action {
+    color: var(--gold) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.8px !important;
+    text-transform: uppercase !important;
+}
+
+body.vu-theme-light .card-footer {
+    border-top: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .card-body {
+    background: transparent !important;
+    padding: 18px 20px !important;
+}
+
+
+/* ======================================================
+   10. SECTION DIVIDERS & HEADERS
+   ====================================================== */
+body.vu-theme-light .section-divider {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin: 4px 0 2px !important;
+}
+
+body.vu-theme-light .section-divider-label {
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    color: var(--gold) !important;
+    white-space: nowrap !important;
+}
+
+body.vu-theme-light .section-divider-line {
+    flex: 1 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, var(--border), transparent) !important;
+}
+
+body.vu-theme-light .section-divider-icon {
+    background: var(--gold-dim) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .section-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 14px !important;
+}
+
+body.vu-theme-light .section-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .section-title .dot {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--gold) !important;
+}
+
+body.vu-theme-light .section-link {
+    font-size: 11px !important;
+    color: var(--gold) !important;
+    cursor: pointer !important;
+    background: none !important;
+    border: none !important;
+    font-family: inherit !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .section-link:hover {
+    text-decoration: underline !important;
+}
+
+
+/* ======================================================
+   11. MINI STATS
+   ====================================================== */
+body.vu-theme-light .mini-stats {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+}
+
+body.vu-theme-light .mini-stat {
+    text-align: center !important;
+    padding: 14px 10px !important;
+    background: var(--surface) !important;
+    border-radius: var(--radius) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03) !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+body.vu-theme-light .mini-stat:hover {
+    border-color: rgba(201,162,60,0.25) !important;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.05) !important;
+}
+
+body.vu-theme-light .mini-stat .val {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .mini-stat .lbl {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    margin-top: 4px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    font-weight: 600 !important;
+}
+
+
+/* ======================================================
+   12. STATUS PILLS
+   ====================================================== */
+body.vu-theme-light .status-row {
+    display: flex !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+body.vu-theme-light .status-pill {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 14px !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 12px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+    transition: border-color 0.15s !important;
+}
+
+body.vu-theme-light .status-pill:hover {
+    border-color: rgba(0,0,0,0.12) !important;
+}
+
+body.vu-theme-light .pill-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+}
+
+body.vu-theme-light .pill-count {
+    font-weight: 700 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .pill-label {
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   13. TAGS
+   ====================================================== */
+body.vu-theme-light .tag {
+    display: inline-block !important;
+    padding: 3px 10px !important;
+    border-radius: 6px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+}
+
+body.vu-theme-light .tag-gold   { background: var(--gold-dim); color: var(--gold) !important; }
+body.vu-theme-light .tag-blue   { background: var(--blue-dim); color: var(--blue) !important; }
+body.vu-theme-light .tag-green  { background: var(--green-dim); color: var(--green) !important; }
+body.vu-theme-light .tag-red    { background: var(--red-dim); color: var(--red) !important; }
+body.vu-theme-light .tag-purple { background: var(--purple-dim); color: var(--purple) !important; }
+body.vu-theme-light .tag-orange { background: var(--orange-dim); color: var(--orange) !important; }
+
+
+/* ======================================================
+   14. TABLES
+   ====================================================== */
+body.vu-theme-light .table-wrap {
+    overflow-x: auto !important;
+}
+
+body.vu-theme-light table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 12.5px !important;
+}
+
+body.vu-theme-light thead th {
+    text-align: left !important;
+    font-size: 10px !important;
+    letter-spacing: 0.8px !important;
+    text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+    font-weight: 700 !important;
+    padding: 0 8px 10px !important;
+    border-bottom: 1px solid var(--border) !important;
+    white-space: nowrap !important;
+    background: transparent !important;
+}
+
+body.vu-theme-light tbody tr {
+    border-bottom: 1px solid var(--border) !important;
+    transition: background 0.12s !important;
+    cursor: pointer !important;
+}
+
+body.vu-theme-light tbody tr:last-child {
+    border-bottom: none !important;
+}
+
+body.vu-theme-light tbody tr:hover {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light tbody td {
+    padding: 10px 8px !important;
+    vertical-align: middle !important;
+    color: var(--text) !important;
+    font-size: 12.5px !important;
+}
+
+body.vu-theme-light .rank {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    width: 24px !important;
+}
+
+body.vu-theme-light .rank.top {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .article-title {
+    font-weight: 600 !important;
+    color: var(--text) !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    max-width: 260px !important;
+    line-height: 1.4 !important;
+}
+
+body.vu-theme-light .num {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+}
+
+
+/* ======================================================
+   15. STAR RATINGS
+   ====================================================== */
+body.vu-theme-light .star-display {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+}
+
+body.vu-theme-light .stars {
+    color: var(--gold) !important;
+    font-size: 11px !important;
+    letter-spacing: -1px !important;
+}
+
+body.vu-theme-light .stars.low { color: var(--red) !important; }
+body.vu-theme-light .stars.mid { color: var(--orange) !important; }
+
+body.vu-theme-light .star-val {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .gold-star { color: var(--gold) !important; }
+body.vu-theme-light .star-full,
+body.vu-theme-light .star-half { color: var(--gold) !important; }
+body.vu-theme-light .star-empty { color: var(--surface3) !important; }
+
+body.vu-theme-light .sentiment-bar {
+    display: flex !important;
+    height: 5px !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+    gap: 1px !important;
+    min-width: 60px !important;
+}
+
+body.vu-theme-light .sentiment-bar .pos {
+    background: var(--green) !important;
+    border-radius: 3px 0 0 3px !important;
+}
+
+body.vu-theme-light .sentiment-bar .neg {
+    background: var(--red) !important;
+    border-radius: 0 3px 3px 0 !important;
+}
+
+
+/* ======================================================
+   16. AUTHOR ITEMS
+   ====================================================== */
+body.vu-theme-light .author-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 9px 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .author-item:last-child {
+    border-bottom: none !important;
+}
+
+body.vu-theme-light .author-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    flex-shrink: 0 !important;
+}
+
+body.vu-theme-light .author-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+body.vu-theme-light .author-name {
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .author-name:hover {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .author-count {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .author-bar-wrap {
+    width: 60px !important;
+}
+
+body.vu-theme-light .author-bar {
+    height: 4px !important;
+    background: var(--surface3) !important;
+    border-radius: 2px !important;
+    overflow: hidden !important;
+}
+
+body.vu-theme-light .author-bar-fill {
+    height: 100% !important;
+    border-radius: 2px !important;
+}
+
+body.vu-theme-light .author-views {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .author-meta {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .author-draft {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .author-avatar-sm {
+    color: #1a1a1a !important;
+}
+
+
+/* ======================================================
+   17. ACTIVITY
+   ====================================================== */
+body.vu-theme-light .activity-item {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    padding: 10px 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .activity-item:last-child {
+    border-bottom: none !important;
+}
+
+body.vu-theme-light .activity-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    margin-top: 5px !important;
+    flex-shrink: 0 !important;
+}
+
+body.vu-theme-light .activity-body {
+    flex: 1 !important;
+}
+
+body.vu-theme-light .activity-title {
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .activity-title em {
+    font-style: normal !important;
+    color: var(--gold) !important;
+    font-weight: 700 !important;
+}
+
+body.vu-theme-light .activity-meta {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+    margin-top: 3px !important;
+}
+
+
+/* ======================================================
+   18. RATING OVERVIEW
+   ====================================================== */
+body.vu-theme-light .rating-overview {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 14px !important;
+}
+
+body.vu-theme-light .rating-split-card {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    padding: 18px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .big-score {
+    font-size: 48px !important;
+    font-weight: 800 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--gold) !important;
+    line-height: 1 !important;
+}
+
+body.vu-theme-light .big-stars {
+    font-size: 20px !important;
+    color: var(--gold) !important;
+    letter-spacing: -2px !important;
+}
+
+body.vu-theme-light .big-stars.low {
+    color: var(--red) !important;
+}
+
+body.vu-theme-light .score-sub {
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+    margin-top: 4px !important;
+}
+
+body.vu-theme-light .rating-dist {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    margin-top: 14px !important;
+}
+
+body.vu-theme-light .rbar-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+body.vu-theme-light .rbar-label {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    width: 14px !important;
+    text-align: right !important;
+    flex-shrink: 0 !important;
+}
+
+body.vu-theme-light .rbar-track {
+    flex: 1 !important;
+    height: 6px !important;
+    background: var(--surface3) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+}
+
+body.vu-theme-light .rbar-fill-pos { height: 100%; border-radius: 3px; background: var(--green) !important; }
+body.vu-theme-light .rbar-fill-neg { height: 100%; border-radius: 3px; background: var(--red) !important; }
+body.vu-theme-light .rbar-fill-mid { height: 100%; border-radius: 3px; background: var(--gold) !important; }
+
+body.vu-theme-light .rbar-count {
+    font-size: 10px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--text-muted) !important;
+    width: 20px !important;
+    text-align: right !important;
+}
+
+
+/* ======================================================
+   19. RATING ITEMS
+   ====================================================== */
+body.vu-theme-light .rating-item {
+    border-bottom-color: var(--border) !important;
+}
+
+body.vu-theme-light .rating-item:hover {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .rating-item-title {
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .rating-item-title:hover {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .rating-score {
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .rating-score-low {
+    color: var(--red) !important;
+}
+
+body.vu-theme-light .rating-count {
+    color: var(--text-muted) !important;
+}
+
+/* Rating distribution */
+body.vu-theme-light .rd-title { color: var(--text-muted) !important; }
+body.vu-theme-light .rd-bar { background: var(--surface3) !important; }
+body.vu-theme-light .rd-label { color: var(--text-muted) !important; }
+body.vu-theme-light .rd-count,
+body.vu-theme-light .rd-pct { color: var(--text-dim) !important; }
+
+
+/* ======================================================
+   20. SPOTLIGHT
+   ====================================================== */
+body.vu-theme-light .spotlight-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 14px !important;
+}
+
+body.vu-theme-light .spotlight-item {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 10px !important;
+    background: var(--surface2) !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border) !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+
+body.vu-theme-light .spotlight-item:hover {
+    border-color: rgba(0,0,0,0.12) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .spotlight-rank {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    flex-shrink: 0 !important;
+}
+
+body.vu-theme-light .spotlight-body {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+body.vu-theme-light .spotlight-title {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    margin-bottom: 4px !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .spotlight-meta {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   21. PERF CARDS
+   ====================================================== */
+body.vu-theme-light .perf-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 14px !important;
+}
+
+body.vu-theme-light .perf-card-inner {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+body.vu-theme-light .perf-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px !important;
+    background: var(--surface2) !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border) !important;
+    transition: border-color 0.15s !important;
+}
+
+body.vu-theme-light .perf-item:hover {
+    border-color: rgba(0,0,0,0.10) !important;
+}
+
+body.vu-theme-light .perf-rank {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    width: 20px !important;
+    text-align: center !important;
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .perf-rank.g1 { color: var(--gold) !important; }
+body.vu-theme-light .perf-rank.g2 { color: #999 !important; }
+body.vu-theme-light .perf-rank.g3 { color: #a07850 !important; }
+
+body.vu-theme-light .perf-body {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+body.vu-theme-light .perf-name {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .perf-sub {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    margin-top: 2px !important;
+}
+
+body.vu-theme-light .perf-score {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+
+/* ======================================================
+   22. TAB ROW
+   ====================================================== */
+body.vu-theme-light .tab-row {
+    display: flex !important;
+    gap: 0 !important;
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 3px !important;
+    margin-bottom: 14px !important;
+}
+
+body.vu-theme-light .tab-btn {
+    flex: 1 !important;
+    padding: 5px 10px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    font-family: inherit !important;
+    transition: all 0.15s !important;
+}
+
+body.vu-theme-light .tab-btn.active {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+}
+
+
+/* ======================================================
+   23. BUTTONS
+   ====================================================== */
+body.vu-theme-light .btn {
+    padding: 7px 14px !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    border: none !important;
+    transition: all 0.2s !important;
+    font-family: 'Be Vietnam Pro', -apple-system, sans-serif !important;
+}
+
+body.vu-theme-light .btn-primary,
+body.vu-theme-light .btn-gold {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(201,162,60,0.20) !important;
+}
+
+body.vu-theme-light .btn-primary:hover,
+body.vu-theme-light .btn-gold:hover {
+    box-shadow: 0 4px 16px rgba(201,162,60,0.30) !important;
+    transform: translateY(-1px) !important;
+}
+
+body.vu-theme-light .btn-outline,
+body.vu-theme-light .btn-secondary,
+body.vu-theme-light .btn-light {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .btn-outline:hover,
+body.vu-theme-light .btn-secondary:hover {
+    border-color: var(--gold) !important;
+    color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+body.vu-theme-light .btn-danger {
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+    border: 1px solid rgba(201,64,64,0.15) !important;
+}
+
+body.vu-theme-light .ad_button,
+body.vu-theme-light .action-btn-sm {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+body.vu-theme-light .ad_button:hover {
+    color: var(--gold) !important;
+    border-color: var(--gold) !important;
+}
+
+body.vu-theme-light .ad_button_delete:hover {
+    border-color: var(--red) !important;
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+}
+
+
+/* ======================================================
+   24. BADGES
+   ====================================================== */
+body.vu-theme-light .badge,
+body.vu-theme-light .vu-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+}
+
+body.vu-theme-light .badge-secondary,
+body.vu-theme-light .vu-badge.neutral {
+    background: var(--surface3) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .badge-warning,
+body.vu-theme-light .vu-badge.gold {
+    background: var(--gold-dim) !important;
+    color: #8a6d1a !important;
+}
+
+body.vu-theme-light .badge-success,
+body.vu-theme-light .vu-badge.info {
+    background: var(--green-dim) !important;
+    color: #1e5c36 !important;
+}
+
+body.vu-theme-light .badge-danger,
+body.vu-theme-light .vu-badge-sm.danger {
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+}
+
+body.vu-theme-light .badge-info {
+    background: var(--blue-dim) !important;
+    color: #2563c0 !important;
+}
+
+
+/* ======================================================
+   25. PAGINATION
+   ====================================================== */
+body.vu-theme-light .page-link {
+    background: var(--surface) !important;
+    color: var(--text-dim) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+body.vu-theme-light .page-item.active .page-link {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    border-color: var(--gold) !important;
+    color: #ffffff !important;
+}
+
+
+/* ======================================================
+   26. FORMS
+   ====================================================== */
+body.vu-theme-light .form-control,
+body.vu-theme-light .custom-select,
+body.vu-theme-light select,
+body.vu-theme-light textarea {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+}
+
+body.vu-theme-light .form-control:focus {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 3px rgba(201,162,60,0.08) !important;
+}
+
+body.vu-theme-light .form-control::placeholder {
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light select option {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light label,
+body.vu-theme-light .form-group label {
+    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+}
+
+body.vu-theme-light .input-group-text {
+    background: var(--surface3) !important;
+    border-color: var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   27. DROPDOWNS
+   ====================================================== */
+body.vu-theme-light .dropdown-menu {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.10) !important;
+}
+
+body.vu-theme-light .dropdown-item {
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .dropdown-item:hover {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+}
+
+
+/* ======================================================
+   28. MODALS
+   ====================================================== */
+body.vu-theme-light .modal-content {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.12) !important;
+}
+
+body.vu-theme-light .modal-header {
+    border-bottom-color: var(--border) !important;
+}
+
+body.vu-theme-light .modal-header .close {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .modal-title {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .modal-body {
+    color: var(--text-dim) !important;
+}
+
+
+/* ======================================================
+   29. ALERTS
+   ====================================================== */
+body.vu-theme-light .vu-alert {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+}
+
+body.vu-theme-light .vu-alert-success {
+    background: var(--green-dim) !important;
+    color: #1e5c36 !important;
+    border-color: rgba(45,139,90,0.20) !important;
+}
+
+body.vu-theme-light .vu-alert-danger {
+    background: var(--red-dim) !important;
+    color: #a02020 !important;
+    border-color: rgba(201,64,64,0.20) !important;
+}
+
+body.vu-theme-light .vu-alert-warning {
+    background: var(--gold-dim) !important;
+    color: #6a5010 !important;
+    border-color: rgba(201,162,60,0.20) !important;
+}
+
+body.vu-theme-light .vu-alert-info {
+    background: var(--blue-dim) !important;
+    color: #1a4db0 !important;
+    border-color: rgba(59,125,216,0.20) !important;
+}
+
+
+/* ======================================================
+   30. TEXT UTILITIES
+   ====================================================== */
+body.vu-theme-light .text-muted,
+body.vu-theme-light small {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .text-danger  { color: var(--red) !important; }
+body.vu-theme-light .text-success { color: var(--green) !important; }
+body.vu-theme-light .text-warning { color: var(--gold) !important; }
+body.vu-theme-light .text-info    { color: var(--blue) !important; }
+
+
+/* ======================================================
+   31. SMALL BOX
+   ====================================================== */
+body.vu-theme-light .small-box {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .small-box .inner h3 {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .small-box .inner p {
+    color: var(--text-muted) !important;
+    margin: 0 !important;
+}
+
+body.vu-theme-light .small-box .icon {
+    color: rgba(0,0,0,0.06) !important;
+}
+
+
+/* ======================================================
+   32. GRADIENT BACKGROUNDS
+   ====================================================== */
+body.vu-theme-light .bg-gradient-primary { background: linear-gradient(135deg, var(--blue-dim), rgba(59,125,216,0.03)) !important; }
+body.vu-theme-light .bg-gradient-danger  { background: linear-gradient(135deg, var(--red-dim), rgba(201,64,64,0.03)) !important; }
+body.vu-theme-light .bg-gradient-info    { background: linear-gradient(135deg, var(--gold-dim), rgba(201,162,60,0.03)) !important; }
+body.vu-theme-light .bg-gradient-success { background: linear-gradient(135deg, var(--green-dim), rgba(45,139,90,0.03)) !important; }
+
+
+/* ======================================================
+   33. DATATABLES
+   ====================================================== */
+body.vu-theme-light .dataTables_wrapper .dataTables_filter input {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .dataTables_wrapper .dataTables_length select {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .dataTables_wrapper .dataTables_info,
+body.vu-theme-light .dataTables_wrapper .dataTables_paginate {
+    color: var(--text-muted) !important;
+}
+
+
+/* ======================================================
+   34. GRID LAYOUTS
+   ====================================================== */
+body.vu-theme-light .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 14px !important;
+}
+
+body.vu-theme-light .chart-row {
+    display: grid !important;
+    grid-template-columns: 2fr 1fr !important;
+    gap: 14px !important;
+}
+
+body.vu-theme-light .analytics-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 14px !important;
+}
+
+
+/* ======================================================
+   35. DONUT CHART LEGEND
+   ====================================================== */
+body.vu-theme-light .donut-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px !important;
+}
+
+body.vu-theme-light .donut-legend {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+}
+
+body.vu-theme-light .legend-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+}
+
+body.vu-theme-light .legend-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+}
+
+body.vu-theme-light .legend-name {
+    flex: 1 !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .legend-val {
+    font-weight: 700 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--text) !important;
+}
+
+
+/* ======================================================
+   36. CATEGORY BARS
+   ====================================================== */
+body.vu-theme-light .cat-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 7px 0 !important;
+}
+
+body.vu-theme-light .cat-name {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    min-width: 90px !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .cat-bar-wrap {
+    flex: 1 !important;
+}
+
+body.vu-theme-light .cat-bar {
+    height: 6px !important;
+    background: var(--surface3) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+}
+
+body.vu-theme-light .cat-bar-fill {
+    height: 100% !important;
+    border-radius: 3px !important;
+}
+
+body.vu-theme-light .cat-count {
+    font-size: 11px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 600 !important;
+    min-width: 28px !important;
+    text-align: right !important;
+}
+
+body.vu-theme-light .cat-pct {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+    min-width: 34px !important;
+    text-align: right !important;
+}
+
+
+/* ======================================================
+   37. HEATMAP
+   ====================================================== */
+body.vu-theme-light .heatmap-grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 3px !important;
+    margin-top: 10px !important;
+}
+
+body.vu-theme-light .hm-day {
+    height: 12px !important;
+    border-radius: 2px !important;
+    background: var(--surface3) !important;
+    cursor: pointer !important;
+}
+
+body.vu-theme-light .hm-labels {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 3px !important;
+    margin-top: 4px !important;
+}
+
+body.vu-theme-light .hm-label {
+    font-size: 9px !important;
+    color: var(--text-muted) !important;
+    text-align: center !important;
+}
+
+
+/* ======================================================
+   38. CHART WRAP
+   ====================================================== */
+body.vu-theme-light .chart-wrap {
+    height: 240px !important;
+    position: relative !important;
+}
+
+
+/* ======================================================
+   39. TIME FILTER
+   ====================================================== */
+body.vu-theme-light .time-filter {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    padding: 4px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+}
+
+body.vu-theme-light .tf-btn {
+    padding: 6px 14px !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    transition: all 0.15s !important;
+    font-family: 'Be Vietnam Pro', sans-serif !important;
+}
+
+body.vu-theme-light .tf-btn.active {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(201,162,60,0.20) !important;
+}
+
+body.vu-theme-light .tf-btn:hover:not(.active) {
+    color: var(--text) !important;
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .date-picker {
+    padding: 6px 12px !important;
+    border-radius: var(--radius-sm) !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    font-family: 'Be Vietnam Pro', sans-serif !important;
+}
+
+body.vu-theme-light .date-picker:focus {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 3px rgba(201,162,60,0.08) !important;
+}
+
+
+/* ======================================================
+   40. OVERLAY
+   ====================================================== */
+body.vu-theme-light .vu-overlay {
+    background: rgba(0,0,0,0.35) !important;
+}
+
+
+/* ======================================================
+   41. DASH CARD VARIANTS
+   ====================================================== */
+body.vu-theme-light .dash-card,
+body.vu-theme-light .dash-stat-card,
+body.vu-theme-light .dash-panel,
+body.vu-theme-light .dash-panel-head {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .dash-stat-card:hover {
+    border-color: rgba(201,162,60,0.25) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+
+
+/* ======================================================
+   42. TABLE CARD VARIANTS
+   ====================================================== */
+body.vu-theme-light .ns-table-card,
+body.vu-theme-light .rate-table-card,
+body.vu-theme-light .au-table-card,
+body.vu-theme-light .cmt-table-card,
+body.vu-theme-light .ad-table-card {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+
+/* ======================================================
+   43. STAT CARD VARIANTS (other pages)
+   ====================================================== */
+body.vu-theme-light .rate-stat-card,
+body.vu-theme-light .au-stat-card,
+body.vu-theme-light .ad-stat-card,
+body.vu-theme-light .cmt-stat-card,
+body.vu-theme-light .ns-stat-card {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .rate-stat-card:hover,
+body.vu-theme-light .au-stat-card:hover,
+body.vu-theme-light .ad-stat-card:hover,
+body.vu-theme-light .cmt-stat-card:hover {
+    border-color: rgba(201,162,60,0.25) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+
+
+/* ======================================================
+   44. RATING & PROFILE CARD VARIANTS
+   ====================================================== */
+body.vu-theme-light .rate-overview-card,
+body.vu-theme-light .rate-chart-card,
+body.vu-theme-light .au-rating-overview,
+body.vu-theme-light .ns-rating-overview,
+body.vu-theme-light .ad-profile-card,
+body.vu-theme-light .ad-rating-card,
+body.vu-theme-light .cmt-rating-mini,
+body.vu-theme-light .ad-article-card,
+body.vu-theme-light .ad-highlight-card,
+body.vu-theme-light .au-filter-card,
+body.vu-theme-light .ad-filter-card {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+
+/* ======================================================
+   45. PAGE HEADERS (other pages)
+   ====================================================== */
+body.vu-theme-light .ns-page-header,
+body.vu-theme-light .au-page-header,
+body.vu-theme-light .ad-page-header,
+body.vu-theme-light .rate-page-header,
+body.vu-theme-light .cmt-page-header,
+body.vu-theme-light .dash-header {
+    border-bottom: 1px solid var(--border) !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 20px !important;
+}
+
+body.vu-theme-light .ns-page-header h1,
+body.vu-theme-light .au-page-header h1,
+body.vu-theme-light .ad-page-header h1,
+body.vu-theme-light .rate-page-header h1,
+body.vu-theme-light .cmt-page-header h1 {
+    color: var(--text) !important;
+}
+
+
+/* ======================================================
+   46. FILTER BARS
+   ====================================================== */
+body.vu-theme-light .ns-filter-bar,
+body.vu-theme-light .rate-filter-bar,
+body.vu-theme-light .au-filter-bar,
+body.vu-theme-light .cmt-filter-bar {
+    background: var(--surface2) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+
+/* ======================================================
+   47. EMPTY STATES
+   ====================================================== */
+body.vu-theme-light .ns-empty,
+body.vu-theme-light .au-empty,
+body.vu-theme-light .ad-empty,
+body.vu-theme-light .rate-empty,
+body.vu-theme-light .cmt-empty {
+    background: var(--surface2) !important;
+    border-radius: var(--radius) !important;
+    padding: 40px !important;
+    text-align: center !important;
+}
+
+body.vu-theme-light .ns-empty-icon,
+body.vu-theme-light .au-empty-icon,
+body.vu-theme-light .ad-empty-icon,
+body.vu-theme-light .rate-empty-icon,
+body.vu-theme-light .cmt-empty-icon {
+    color: var(--gold) !important;
+}
+
+
+/* ======================================================
+   48. BULK BAR
+   ====================================================== */
+body.vu-theme-light .ns-bulk-bar,
+body.vu-theme-light .rate-bulk-bar,
+body.vu-theme-light .cmt-bulk-bar {
+    background: var(--gold-dim) !important;
+    border-color: rgba(201,162,60,0.18) !important;
+    color: var(--text-dim) !important;
+}
+
+
+/* ======================================================
+   49. SELECT2
+   ====================================================== */
+body.vu-theme-light .select2-container--default .select2-selection--single {
+    background: var(--surface2) !important;
+    border-color: var(--border) !important;
+}
+
+body.vu-theme-light .select2-container--default .select2-selection__rendered {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .select2-dropdown {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+
+body.vu-theme-light .select2-results__option {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .select2-results__option--highlighted[aria-selected] {
+    background: var(--gold-dim) !important;
+    color: var(--text) !important;
+}
+
+
+/* ======================================================
+   50. SCROLLBAR
+   ====================================================== */
+body.vu-theme-light ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+body.vu-theme-light ::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.02) !important;
+}
+
+body.vu-theme-light ::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12) !important;
+    border-radius: 3px !important;
+}
+
+body.vu-theme-light ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.22) !important;
+}
+
+
+/* ======================================================
+   51. ANIMATION
+   ====================================================== */
+body.vu-theme-light .stat-card,
+body.vu-theme-light .card,
+body.vu-theme-light .rating-split-card {
+    animation: fadeUp 0.35s ease both !important;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ======================================================
+   52. RESPONSIVE MEDIA QUERIES
+   ====================================================== */
+@media (max-width: 1200px) {
+    body.vu-theme-light .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    body.vu-theme-light .mini-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 992px) {
+    body.vu-theme-light .sidebar {
+        box-shadow: 2px 0 20px rgba(0,0,0,0.12) !important;
+    }
+    body.vu-theme-light .chart-row,
+    body.vu-theme-light .analytics-row,
+    body.vu-theme-light .rating-overview,
+    body.vu-theme-light .perf-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 768px) {
+    body.vu-theme-light .stats-grid,
+    body.vu-theme-light .mini-stats {
+        grid-template-columns: 1fr !important;
+    }
+    body.vu-theme-light .content {
+        padding: 18px 16px !important;
+    }
+}
+
+/* ======================================================
+   53. COMPREHENSIVE OVERRIDES FOR PAGE-SPECIFIC CLASSES (ns-, cmt-, rate-, au-, ad-, slider-, vu-)
+   ====================================================== */
+
+/* 53.1 General Table Headers and Hovers */
+body.vu-theme-light .ns-table thead,
+body.vu-theme-light .cmt-table thead,
+body.vu-theme-light .rate-table thead,
+body.vu-theme-light .au-table thead,
+body.vu-theme-light .ad-table thead,
+body.vu-theme-light .slider-table thead,
+body.vu-theme-light .vu-table-dark thead {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .ns-table th,
+body.vu-theme-light .cmt-table th,
+body.vu-theme-light .rate-table th,
+body.vu-theme-light .au-table th,
+body.vu-theme-light .ad-table th,
+body.vu-theme-light .slider-table th,
+body.vu-theme-light .vu-table-dark th {
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ns-table td,
+body.vu-theme-light .cmt-table td,
+body.vu-theme-light .rate-table td,
+body.vu-theme-light .au-table td,
+body.vu-theme-light .ad-table td,
+body.vu-theme-light .slider-table td,
+body.vu-theme-light .vu-table-dark td {
+    color: var(--text-dim) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ns-table tbody tr:hover,
+body.vu-theme-light .cmt-table tbody tr:hover,
+body.vu-theme-light .rate-table tbody tr:hover,
+body.vu-theme-light .au-table tbody tr:hover,
+body.vu-theme-light .ad-table tbody tr:hover,
+body.vu-theme-light .slider-table tbody tr:hover,
+body.vu-theme-light .vu-table-dark tbody tr:hover {
+    background: var(--surface2) !important;
+}
+
+/* 53.2 Neutral Badges and Chips */
+body.vu-theme-light .ns-badge.neutral,
+body.vu-theme-light .cmt-badge.neutral,
+body.vu-theme-light .au-badge.neutral,
+body.vu-theme-light .rate-badge.neutral,
+body.vu-theme-light .ad-badge.neutral,
+body.vu-theme-light .rate-user-badge,
+body.vu-theme-light .vu-badge-neutral,
+body.vu-theme-light .vu-badge-sm.neutral {
+    background: var(--surface3) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .ns-badge.info,
+body.vu-theme-light .cmt-badge.info,
+body.vu-theme-light .au-badge.info,
+body.vu-theme-light .ad-badge.info,
+body.vu-theme-light .vu-badge-sm.info {
+    background: var(--blue-dim) !important;
+    color: var(--blue) !important;
+}
+
+body.vu-theme-light .vu-badge-success,
+body.vu-theme-light .vu-badge-sm.success,
+body.vu-theme-light .vu-badge-sm.primary {
+    background: var(--green-dim) !important;
+    color: var(--green) !important;
+}
+
+body.vu-theme-light .vu-badge-danger,
+body.vu-theme-light .vu-badge-sm.danger {
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+}
+
+/* 53.3 Filter and Search Bars */
+body.vu-theme-light .ns-filter-bar,
+body.vu-theme-light .cmt-filter-bar,
+body.vu-theme-light .rate-filter-bar,
+body.vu-theme-light .au-filter-head,
+body.vu-theme-light .au-filter-body,
+body.vu-theme-light .rate-table-head,
+body.vu-theme-light .au-table-head,
+body.vu-theme-light .vu-card-header,
+body.vu-theme-light .vu-filter-row,
+body.vu-theme-light .filter-bar {
+    background: var(--surface2) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ns-filter-input,
+body.vu-theme-light .ns-filter-select,
+body.vu-theme-light .cmt-filter-input,
+body.vu-theme-light .cmt-filter-select,
+body.vu-theme-light .rate-filter-input,
+body.vu-theme-light .rate-filter-select,
+body.vu-theme-light .au-filter-input,
+body.vu-theme-light .au-filter-select,
+body.vu-theme-light .vu-input,
+body.vu-theme-light .vu-select,
+body.vu-theme-light .vu-form-control,
+body.vu-theme-light .filter-bar input,
+body.vu-theme-light .filter-bar select {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .ns-filter-input:focus,
+body.vu-theme-light .ns-filter-select:focus,
+body.vu-theme-light .cmt-filter-input:focus,
+body.vu-theme-light .cmt-filter-select:focus,
+body.vu-theme-light .rate-filter-input:focus,
+body.vu-theme-light .rate-filter-select:focus,
+body.vu-theme-light .au-filter-input:focus,
+body.vu-theme-light .au-filter-select:focus,
+body.vu-theme-light .vu-input:focus,
+body.vu-theme-light .vu-select:focus,
+body.vu-theme-light .vu-form-control:focus,
+body.vu-theme-light .filter-bar input:focus,
+body.vu-theme-light .filter-bar select:focus {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 3px rgba(201,162,60,0.08) !important;
+}
+
+/* 53.4 Star Ratings */
+body.vu-theme-light .ns-star-off,
+body.vu-theme-light .cmt-star-off,
+body.vu-theme-light .rate-star-off,
+body.vu-theme-light .au-rating-star-off,
+body.vu-theme-light .ad-star-off {
+    color: var(--surface3) !important;
+}
+
+/* 53.5 Bulk Actions Bar */
+body.vu-theme-light .ns-bulk-bar,
+body.vu-theme-light .cmt-bulk-bar,
+body.vu-theme-light .rate-bulk-bar {
+    background: var(--gold-dim) !important;
+    border: 1px solid rgba(201,162,60,0.18) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .ns-bulk-btn.execute,
+body.vu-theme-light .cmt-bulk-btn.execute {
+    background: var(--gold) !important;
+    color: #ffffff !important;
+}
+
+/* 53.6 Action Buttons */
+body.vu-theme-light .ns-action-btn,
+body.vu-theme-light .cmt-action-btn,
+body.vu-theme-light .rate-action-btn,
+body.vu-theme-light .au-action-btn,
+body.vu-theme-light .action-btn-sm {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .ns-action-btn:hover,
+body.vu-theme-light .cmt-action-btn:hover,
+body.vu-theme-light .rate-action-btn:hover,
+body.vu-theme-light .au-action-btn:hover,
+body.vu-theme-light .action-btn-sm:hover {
+    color: var(--gold) !important;
+    border-color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+body.vu-theme-light .ns-action-btn.danger:hover,
+body.vu-theme-light .cmt-action-btn.danger:hover,
+body.vu-theme-light .rate-action-btn.danger:hover,
+body.vu-theme-light .au-action-btn.danger:hover,
+body.vu-theme-light .action-btn-sm.danger:hover {
+    color: var(--red) !important;
+    border-color: var(--red) !important;
+    background: var(--red-dim) !important;
+}
+
+/* 53.7 Pagination */
+body.vu-theme-light .ns-page-link,
+body.vu-theme-light .cmt-page-link,
+body.vu-theme-light .rate-page-link,
+body.vu-theme-light .au-page-link,
+body.vu-theme-light .pagination-link {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .ns-page-link:hover,
+body.vu-theme-light .cmt-page-link:hover,
+body.vu-theme-light .rate-page-link:hover,
+body.vu-theme-light .au-page-link:hover,
+body.vu-theme-light .pagination-link:hover {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .ns-page-link.active,
+body.vu-theme-light .cmt-page-link.active,
+body.vu-theme-light .rate-page-link.active,
+body.vu-theme-light .au-page-link.active,
+body.vu-theme-light .pagination-link.active,
+body.vu-theme-light .pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    border-color: var(--gold) !important;
+    color: #ffffff !important;
+}
+
+/* 53.8 Chart Legends and Values */
+body.vu-theme-light .rate-legend-val {
+    color: var(--text) !important;
+}
+
+/* 53.9 Stat Cards Values and Labels */
+body.vu-theme-light .cmt-stat-value,
+body.vu-theme-light .rate-stat-value,
+body.vu-theme-light .au-stat-value,
+body.vu-theme-light .contact-stat-value {
+    color: var(--text) !important;
+}
+
+body.vu-theme-light .rate-stat-card.c1 .rate-stat-value { color: var(--gold) !important; }
+body.vu-theme-light .rate-stat-card.c2 .rate-stat-value { color: var(--gold-light) !important; }
+body.vu-theme-light .rate-stat-card.c3 .rate-stat-value { color: var(--green) !important; }
+body.vu-theme-light .rate-stat-card.c4 .rate-stat-value { color: var(--red) !important; }
+
+body.vu-theme-light .cmt-stat-card.c2 .cmt-stat-value { color: var(--green) !important; }
+body.vu-theme-light .cmt-stat-card.c3 .cmt-stat-value { color: var(--text-muted) !important; }
+body.vu-theme-light .cmt-stat-card.c4 .cmt-stat-value { color: var(--gold) !important; }
+
+/* 53.10 Empty States */
+body.vu-theme-light .ns-empty,
+body.vu-theme-light .cmt-empty,
+body.vu-theme-light .au-empty,
+body.vu-theme-light .rate-empty,
+body.vu-theme-light .empty-state,
+body.vu-theme-light .empty-state-dark {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .ns-empty-icon,
+body.vu-theme-light .cmt-empty-icon,
+body.vu-theme-light .au-empty-icon,
+body.vu-theme-light .rate-empty-icon,
+body.vu-theme-light .empty-state i,
+body.vu-theme-light .empty-state-dark .empty-icon {
+    background: var(--surface2) !important;
+    color: var(--gold) !important;
+}
+
+/* 53.11 Cards & Form groups */
+body.vu-theme-light .vu-card-dark,
+body.vu-theme-light .contact-header {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .contact-stat-card {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+body.vu-theme-light .contact-stat-card:hover {
+    border-color: rgba(201,162,60,0.25) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+
+body.vu-theme-light .contact-stat-icon {
+    background: rgba(201,162,60,0.12) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .tab-filter-btn {
+    color: var(--text-muted) !important;
+}
+
+body.vu-theme-light .tab-filter-btn:hover {
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+body.vu-theme-light .tab-filter-btn.active {
+    color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+    border-color: rgba(201,162,60,0.2) !important;
+}
+
+body.vu-theme-light .count-badge {
+    background: var(--surface3) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .contact-avatar-lg {
+    background: var(--gold-dim) !important;
+    color: var(--gold) !important;
+}
+
+body.vu-theme-light .message-display,
+body.vu-theme-light .reply-content {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .vu-card-footer {
+    background: var(--surface2) !important;
+    border-top: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .table-bordered,
+body.vu-theme-light .table-bordered th,
+body.vu-theme-light .table-bordered td {
+    border: 1px solid var(--border) !important;
+}
+
+/* 53.12 Breadcrumb Actions */
+body.vu-theme-light .au-btn-ghost,
+body.vu-theme-light .ns-btn-ghost,
+body.vu-theme-light .ad-btn-ghost,
+body.vu-theme-light .btn-outline-sm {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .au-btn-ghost:hover,
+body.vu-theme-light .ns-btn-ghost:hover,
+body.vu-theme-light .ad-btn-ghost:hover,
+body.vu-theme-light .btn-outline-sm:hover {
+    border-color: var(--gold) !important;
+    color: var(--gold) !important;
+    background: var(--gold-dim) !important;
+}
+
+body.vu-theme-light .au-btn-primary,
+body.vu-theme-light .ns-btn-primary,
+body.vu-theme-light .ad-btn-primary,
+body.vu-theme-light .btn-gold {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)) !important;
+    color: #ffffff !important;
+}
+
+body.vu-theme-light .au-btn-primary:hover,
+body.vu-theme-light .ns-btn-primary:hover,
+body.vu-theme-light .ad-btn-primary:hover,
+body.vu-theme-light .btn-gold:hover {
+    box-shadow: 0 4px 12px rgba(201,162,60,0.30) !important;
+    color: #ffffff !important;
+}
+
+body.vu-theme-light .vu-btn,
+body.vu-theme-light .vu-btn-secondary {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .vu-btn-success {
+    background: var(--green) !important;
+    color: #ffffff !important;
+}
+
+body.vu-theme-light .vu-btn-danger {
+    background: var(--red) !important;
+    color: #ffffff !important;
+}
+
+/* 53.13 Rating Bars & Tracks */
+body.vu-theme-light .ns-rating-bar-track,
+body.vu-theme-light .cmt-rating-bar-track,
+body.vu-theme-light .au-rating-bar,
+body.vu-theme-light .rate-dist-track,
+body.vu-theme-light .cat-bar {
+    background: var(--surface3) !important;
+}
+
+/* 53.14 Author Detail Specific Overrides */
+body.vu-theme-light .ad-star-off {
+    color: var(--surface3) !important;
+}
+
+body.vu-theme-light .ad-badge.neutral {
+    background: var(--surface3) !important;
+    color: var(--text-dim) !important;
+}
+
+body.vu-theme-light .ad-article-head,
+body.vu-theme-light .ad-highlight-head,
+body.vu-theme-light .ad-filter-head,
+body.vu-theme-light .ad-table-head {
+    background: var(--surface2) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ad-article-list li {
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ad-article-list li:hover,
+body.vu-theme-light .ad-table tbody tr:hover {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .ad-table thead {
+    background: var(--surface2) !important;
+}
+
+body.vu-theme-light .ad-table th {
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+body.vu-theme-light .ad-table td {
+    color: var(--text-dim) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+/* 53.15 Sidebar adjustments to keep it premium dark */
+body.vu-theme-light .sidebar {
+    background: #13161d !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+body.vu-theme-light .sb-logo {
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+body.vu-theme-light .sb-logo-text {
+    color: #e8eaf0 !important;
+}
+
+body.vu-theme-light .sb-logo-subtext {
+    color: #6b7280 !important;
+}
+
+body.vu-theme-light .sb-item,
+body.vu-theme-light .sb-subitem {
+    color: #9ca3af !important;
+}
+
+body.vu-theme-light .sb-item:hover,
+body.vu-theme-light .sb-subitem:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #e8eaf0 !important;
+}
+
+body.vu-theme-light .sb-item.active,
+body.vu-theme-light .sb-item.is-open,
+body.vu-theme-light .sb-subitem.active {
+    background: rgba(209, 165, 61, 0.15) !important;
+    color: #d1a53d !important;
+}
+
+body.vu-theme-light .sb-item.active::before,
+body.vu-theme-light .sb-item.is-open::before,
+body.vu-theme-light .sb-subitem.active::before {
+    background: #d1a53d !important;
+}
+
+body.vu-theme-light .sb-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+body.vu-theme-light .sb-user-info .name {
+    color: #e8eaf0 !important;
+}
+
+body.vu-theme-light .sb-user-info .role {
+    color: #d1a53d !important;
+}
+
+body.vu-theme-light .sb-avatar {
+    color: #13161d !important;
+    background: linear-gradient(135deg, #d1a53d, #f0c060) !important;
+}
+
+/* 53.16 Toggle Switch (AI settings) */
+body.vu-theme-light .toggle-slider {
+    background: var(--surface3) !important;
+}
+
+body.vu-theme-light .toggle-slider:before {
+    background: #ffffff !important;
+}
+
+body.vu-theme-light .toggle-switch input:checked + .toggle-slider {
+    background: var(--gold) !important;
+}
+

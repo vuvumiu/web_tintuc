@@ -37,10 +37,51 @@
               <input type="text" class="form-control" name="Name" value="{{$NewsCategory->Name}}" id="title" onkeyup="ChangeToSlug()">
           </div>
           
-        <div class="form-group">
           <label for="exampleInputEmail1">Đường dẫn </label>
-          <input type="text" class="form-control" name="Alias" id="slug" value="{{ $NewsCategory->Alias }}">
+          <div class="input-group">
+            <input type="text" class="form-control" name="Alias" id="slug" value="{{ $NewsCategory->Alias }}">
+            <div class="input-group-append">
+              <button type="button" class="btn btn-secondary" onclick="ChangeToSlug()" title="Tạo lại slug">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
       </div>
+
+      <div class="form-group">
+          <label>Màu danh mục</label>
+          <div class="d-flex align-items-center gap-2">
+              <input type="color" name="color" id="colorPicker"
+                     value="{{ $NewsCategory->color ?? '#6c757d' }}"
+                     style="width:60px;height:34px;padding:2px;border-radius:4px;">
+              <input type="text" class="form-control" id="colorText"
+                     value="{{ $NewsCategory->color ?? '#6c757d' }}"
+                     placeholder="#6c757d" maxlength="20" style="max-width:120px;"
+                     oninput="document.getElementById('colorPicker').value=this.value;">
+          </div>
+      </div>
+
+      <div class="form-group">
+          <label>Ảnh danh mục</label>
+          @if($NewsCategory->image)
+              <div class="mb-2">
+                  <img src="{{ url('images/category/' . $NewsCategory->image) }}"
+                       width="64" height="64" class="img-thumbnail"
+                       style="object-fit:cover;background:{{ $NewsCategory->color ?? '#6c757d' }}20;">
+                  <small class="d-block text-muted">Ảnh hiện tại</small>
+              </div>
+          @endif
+          <input type="file" name="image" class="form-control" accept="image/*">
+          <small class="text-muted">Kích thước đề xuất: 64x64 px</small>
+      </div>
+
+      <div class="form-group">
+          <label>Mô tả danh mục</label>
+          <textarea name="description" rows="3" class="form-control"
+                    placeholder="Mô tả ngắn cho danh mục...">{{ $NewsCategory->description ?? '' }}</textarea>
+      </div>
+
+        </div>
           
         
         </div>

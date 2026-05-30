@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Social extends Model
 {
     protected $table = 'social';
     protected $primaryKey = 'RowID';
-    // Nếu cần factories, bạn thêm use HasFactory
-    use HasFactory;
+    public $timestamps = false;
+
+    protected $fillable = [
+        'Name',
+        'Alias',
+        'Font',
+        'Sort',
+        'Status',
+    ];
 }
