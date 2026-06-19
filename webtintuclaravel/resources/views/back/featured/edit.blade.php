@@ -46,13 +46,13 @@
                                 Tin chính (Hero lớn)
                             </option>
                             <option value="2" {{ old('position', $item->position) == 2 ? 'selected' : '' }}>
-                                Tin phụ (Sidebar - 4 bài nhỏ)
+                                Tin phụ (Sidebar)
                             </option>
                         </select>
                         <small class="form-text text-muted">
                             <i class="fas fa-info-circle"></i>
-                            <strong>Tin chính:</strong> Hiển thị 1 bài lớn nhất ở giữa trang.<br>
-                            <strong>Tin phụ:</strong> Hiển thị tối đa 4 bài nhỏ bên cạnh.
+                            <strong>Tin chính:</strong> Hiển thị trong carousel lớn ở đầu trang.<br>
+                            <strong>Tin phụ:</strong> Hiển thị danh sách bài nhỏ bên cạnh, nếu nhiều bài có thể cuộn.
                         </small>
                     </div>
                 </div>
