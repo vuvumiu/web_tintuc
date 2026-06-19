@@ -13,7 +13,7 @@ class FeaturedNewsController extends Controller
     public function index()
     {
         $featured = FeaturedNews::with(['news' => function ($query) {
-            $query->select('RowID', 'RowIDCat', 'Name', 'Title', 'Alias', 'Images', 'Image', 'SmallDescription', 'Views', 'View', 'created_at');
+            $query->select('RowID', 'RowIDCat', 'Name', 'Title', 'Alias', 'Images', 'Image', 'SmallDescription', 'Views', 'View', 'Status', 'created_at');
         }])
             ->orderBy('position', 'ASC')
             ->orderBy('Sort', 'ASC')

@@ -53,13 +53,15 @@ class FrontController extends Controller
                 ->selectRaw('news.*, COALESCE(news.Name, news.Title) as Name, COALESCE(news.Images, news.Image) as Images, COALESCE(news.Views, news.View, 0) as Views, b.Name as CategoryName, b.Alias as CategoryAlias, c.fullname as AuthorName');
         };
 
-        $FeaturedMain = FeaturedNews::whereHas('news', function ($q) {
+        $FeaturedMainItems = FeaturedNews::whereHas('news', function ($q) {
             $q->where('Status', 1);
-        })->with(['news' => $featuredNewsScope])->mainFeatured()->first();
+        })->with(['news' => $featuredNewsScope])->mainFeatured()->get();
+
+        $FeaturedMain = $FeaturedMainItems->first();
 
         $FeaturedSidebar = FeaturedNews::whereHas('news', function ($q) {
             $q->where('Status', 1);
-        })->with(['news' => $featuredNewsScope])->sidebarFeatured()->limit(4)->get();
+        })->with(['news' => $featuredNewsScope])->sidebarFeatured()->get();
 
         // Nếu không có featured news, fallback vào bài viết mới nhất (chỉ cho tin chính)
         if (!$FeaturedMain || !$FeaturedMain->news) {
@@ -75,6 +77,7 @@ class FrontController extends Controller
                 $FeaturedMain = (object)[
                     'news' => $fallback,
                 ];
+                $FeaturedMainItems = collect([$FeaturedMain]);
             }
         }
 
@@ -129,16 +132,20 @@ class FrontController extends Controller
             ->get();
 
         // Carousel data
-        $heroMain = $FeaturedMain ? $FeaturedMain->news : null;
-        $heroSidebar = $FeaturedSidebar->map(function($item) { return $item->news; })->toArray();
-        $heroSlides = $heroSidebar;
-        if ($heroMain) array_unshift($heroSlides, $heroMain);
-        $hasCarousel = count($heroSlides) > 1;
+        $heroMainItems = $FeaturedMainItems->filter(function ($item) {
+            return $item && $item->news;
+        })->values();
+        $heroMain = $heroMainItems->first() ? $heroMainItems->first()->news : null;
+        $heroSlides = $heroMainItems->pluck('news')->unique('RowID')->values();
+        $heroSidebar = $FeaturedSidebar->map(function ($item) {
+            return $item->news;
+        })->filter()->values();
+        $hasCarousel = $heroSlides->count() > 1;
 
         // Quảng cáo popup cho trang chủ
         return view("front.home.home", compact(
             "PageInfo", "CategoriesWithNews", "NewsViews", "Slider", "Tickers",
-            "FeaturedMain", "FeaturedSidebar", "heroMain", "heroSidebar", "heroSlides", "hasCarousel"
+            "FeaturedMain", "FeaturedMainItems", "FeaturedSidebar", "heroMain", "heroSidebar", "heroSlides", "hasCarousel"
         ));
     }
 

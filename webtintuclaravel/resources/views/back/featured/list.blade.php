@@ -227,7 +227,7 @@
         <div class="vu-section-title">
             <i class="fas fa-star" style="color: var(--accent-gold);"></i> Tin chính (Hero lớn)
         </div>
-        <div class="vu-section-subtitle">Hiển thị 1 bài viết lớn nhất ở đầu trang</div>
+        <div class="vu-section-subtitle">Hiển thị các bài trong carousel lớn ở đầu trang</div>
     </div>
     @if($grouped['main']->count() > 0)
     <div style="overflow-x: auto;">
@@ -253,6 +253,17 @@
                             <a href="{{ url($v->news->Alias . '.html') }}" target="_blank" style="color: var(--accent-gold);">
                                 {{ url($v->news->Alias . '.html') }}
                             </a>
+                        </small>
+                        @if((int) $v->news->Status !== 1)
+                        <br>
+                        <small style="color: var(--status-warning); font-size: 11px;">
+                            <i class="fas fa-exclamation-triangle"></i> Bài viết chưa xuất bản nên không hiện ở trang chính
+                        </small>
+                        @endif
+                        @else
+                        <br>
+                        <small style="color: var(--status-danger); font-size: 11px;">
+                            <i class="fas fa-exclamation-triangle"></i> Bài viết không còn tồn tại
                         </small>
                         @endif
                     </td>
@@ -301,7 +312,7 @@
         <div class="vu-section-title">
             <i class="fas fa-list" style="color: var(--text-muted);"></i> Tin phụ (Sidebar)
         </div>
-        <div class="vu-section-subtitle">Hiển thị 4 bài viết nhỏ bên cạnh tin chính</div>
+        <div class="vu-section-subtitle">Hiển thị các bài nhỏ bên cạnh tin chính, nhiều bài sẽ cuộn trong khung sidebar</div>
     </div>
     @if($grouped['sidebar']->count() > 0)
     <div style="overflow-x: auto;">
@@ -327,6 +338,17 @@
                             <a href="{{ url($v->news->Alias . '.html') }}" target="_blank" style="color: var(--accent-gold);">
                                 {{ url($v->news->Alias . '.html') }}
                             </a>
+                        </small>
+                        @if((int) $v->news->Status !== 1)
+                        <br>
+                        <small style="color: var(--status-warning); font-size: 11px;">
+                            <i class="fas fa-exclamation-triangle"></i> Bài viết chưa xuất bản nên không hiện ở trang chính
+                        </small>
+                        @endif
+                        @else
+                        <br>
+                        <small style="color: var(--status-danger); font-size: 11px;">
+                            <i class="fas fa-exclamation-triangle"></i> Bài viết không còn tồn tại
                         </small>
                         @endif
                     </td>

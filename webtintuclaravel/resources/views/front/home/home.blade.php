@@ -37,51 +37,28 @@
 @php
     // === LOGIC SẠCH: Tách biệt carousel và sidebar ===
 
-    // 1. Carousel: hero chính + sidebar items (tối đa 5 items, unique theo RowID)
+    // 1. Carousel: all main featured items selected by admin.
     $carouselSlides = collect();
 
-    if ($FeaturedMain && $FeaturedMain->news) {
-        $carouselSlides->push($FeaturedMain->news);
-    }
-
-    foreach ($FeaturedSidebar as $fs) {
-        if ($fs && $fs->news) {
-            $carouselSlides->push($fs->news);
+    foreach (($FeaturedMainItems ?? collect()) as $fm) {
+        if ($fm && $fm->news) {
+            $carouselSlides->push($fm->news);
         }
     }
 
-    $heroSlides = $carouselSlides->unique('RowID')->take(5)->values();
-    $hasCarousel = $heroSlides->count() > 1;
+    if ($carouselSlides->isEmpty() && $FeaturedMain && $FeaturedMain->news) {
+        $carouselSlides->push($FeaturedMain->news);
+    }
 
-    // 2. Sidebar: CHỈ lấy items KHÔNG trùng với hero main (tránh duplicate)
+    $heroSlides = $carouselSlides->unique('RowID')->values();
+    $hasCarousel = $heroSlides->count() > 1;
+    $heroMain = $heroSlides->first();
+    // 2. Sidebar: show the active/published sidebar items selected by admin.
     $heroSidebar = collect($FeaturedSidebar)
         ->filter(fn($fs) => $fs && $fs->news)
         ->pluck('news')
-        ->reject(fn($news) =>
-            $FeaturedMain &&
-            $FeaturedMain->news &&
-            $news->RowID === $FeaturedMain->news->RowID
-        )
-        ->take(4)
         ->values();
 
-    // 3. Nếu sidebar trống, lấy thêm tin từ DB (tránh trùng với carousel)
-    if ($heroSidebar->count() < 4) {
-        $excludedIds = $heroSlides->pluck('RowID')->filter()->toArray();
-        $needed = 4 - $heroSidebar->count();
-        $sidebarExtra = \DB::table('news as a')
-            ->join('news_cat as b', 'a.RowIDCat', '=', 'b.RowID')
-            ->selectRaw('a.RowID, a.Name, a.Alias, a.Images, a.SmallDescription, a.created_at, b.Name as CategoryName')
-            ->where('a.Status', 1)
-            ->when(!empty($excludedIds), fn($q) => $q->whereNotIn('a.RowID', $excludedIds))
-            ->orderBy('a.RowID', 'DESC')
-            ->limit($needed)
-            ->get();
-        $heroSidebar = $heroSidebar->merge($sidebarExtra);
-    }
-
-    // 4. Hero main cho fallback
-    $heroMain = $FeaturedMain->news ?? null;
 @endphp
 
 <section class="hero">
@@ -163,7 +140,7 @@
     {{-- Sidebar Stories --}}
     @if(count($heroSidebar) > 0)
     <div class="hero-sidebar">
-        <div class="sidebar-title">Tin mới nhất</div>
+        <div class="sidebar-title">Tin phụ nổi bật</div>
 
         @foreach($heroSidebar as $sideNews)
         <div class="side-article">
