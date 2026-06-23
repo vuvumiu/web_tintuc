@@ -35,7 +35,7 @@
 @endphp
 
 <aside class="sidebar admin-unified-sidebar" id="adminSidebar">
-    <a class="sidebar-logo" href="{{ url('admin/home') }}">
+    <a class="sidebar-logo" href="{{ url('admin/home') }}" aria-label="{{ $menuBrandName }}">
         @if($menuBrandLogoType === 'image' && $menuBrandLogoUrl !== '')
             <div class="logo-icon logo-icon-image">
                 <img src="{{ $menuBrandLogoUrl }}" alt="{{ $menuBrandName }}">
@@ -52,15 +52,15 @@
     <div class="sidebar-section">
         <div class="sidebar-section-label">Hệ thống</div>
         <a class="nav-item {{ $dashboardActive ? 'active' : '' }}" href="{{ url('admin/home') }}">
-            <span class="icon">⊞</span>
+            <span class="icon"><i class="fas fa-th-large"></i></span>
             <span>Dashboard</span>
         </a>
 
         @if($canAdminManager)
             <button class="nav-item has-submenu {{ $adminManagerOpen ? 'active is-open' : '' }}" type="button" data-submenu="admin-manager" aria-expanded="{{ $adminManagerOpen ? 'true' : 'false' }}">
-                <span class="icon">👤</span>
+                <span class="icon"><i class="fas fa-user-tie"></i></span>
                 <span>Nhân viên &amp; Tác giả</span>
-                <span class="submenu-arrow">⌄</span>
+                <span class="submenu-arrow"><i class="fas fa-chevron-down"></i></span>
             </button>
             <div class="submenu {{ $adminManagerOpen ? 'is-open' : '' }}" id="submenu-admin-manager">
                 @if($canAny(['author.list', 'author.manage', 'admin-manager.list', 'admin-manager.edit']))
@@ -86,21 +86,21 @@
 
         @if($canMember)
             <a class="nav-item {{ $memberOpen ? 'active' : '' }}" href="{{ url('admin/member/list') }}">
-                <span class="icon">👥</span>
+                <span class="icon"><i class="fas fa-users"></i></span>
                 <span>Quản lý thành viên</span>
             </a>
         @endif
 
         @if($menuIsAdmin)
             <a class="nav-item {{ $systemActive ? 'active' : '' }}" href="{{ url('admin/system') }}">
-                <span class="icon">⚙️</span>
+                <span class="icon"><i class="fas fa-cogs"></i></span>
                 <span>Cấu hình hệ thống</span>
             </a>
         @endif
 
         @if($canAi)
             <a class="nav-item {{ $aiActive ? 'active' : '' }}" href="{{ url('admin/ai/dashboard') }}">
-                <span class="icon">🤖</span>
+                <span class="icon"><i class="fas fa-robot"></i></span>
                 <span>AI Tools</span>
             </a>
         @endif
@@ -111,26 +111,26 @@
 
         @if($canPage)
             <a class="nav-item {{ $pageActive ? 'active' : '' }}" href="{{ url('admin/page/list') }}">
-                <span class="icon">📄</span>
+                <span class="icon"><i class="far fa-file-alt"></i></span>
                 <span>Quản lý trang</span>
             </a>
         @endif
 
         @if($canTag)
             <a class="nav-item {{ $tagActive ? 'active' : '' }}" href="{{ url('admin/tag/list') }}">
-                <span class="icon">🏷️</span>
+                <span class="icon"><i class="fas fa-tags"></i></span>
                 <span>Quản lý Tags</span>
             </a>
         @endif
 
         @if($canNews)
             <button class="nav-item has-submenu {{ $newsOpen ? 'active is-open' : '' }}" type="button" data-submenu="news" aria-expanded="{{ $newsOpen ? 'true' : 'false' }}">
-                <span class="icon">📰</span>
+                <span class="icon"><i class="far fa-newspaper"></i></span>
                 <span>Quản lý tin tức</span>
                 @if($newsTotal > 0)
                     <span class="nav-badge">{{ $badge($newsTotal) }}</span>
                 @endif
-                <span class="submenu-arrow">⌄</span>
+                <span class="submenu-arrow"><i class="fas fa-chevron-down"></i></span>
             </button>
             <div class="submenu {{ $newsOpen ? 'is-open' : '' }}" id="submenu-news">
                 @if($canAny(['news.list', 'news.edit', 'news.delete', 'news.preview']))
@@ -168,28 +168,28 @@
 
         @if($canAds)
             <a class="nav-item {{ $adsActive ? 'active' : '' }}" href="{{ url('admin/ads/list') }}">
-                <span class="icon">📢</span>
+                <span class="icon"><i class="fas fa-bullhorn"></i></span>
                 <span>Quản lý popup QC</span>
             </a>
         @endif
 
         @if($canFeatured)
             <a class="nav-item {{ $featuredActive ? 'active' : '' }}" href="{{ url('admin/featured/list') }}">
-                <span class="icon">⭐</span>
+                <span class="icon"><i class="fas fa-star"></i></span>
                 <span>Bài viết nổi bật</span>
             </a>
         @endif
 
         @if($canTicker)
             <a class="nav-item {{ $tickerActive ? 'active' : '' }}" href="{{ url('admin/ticker/list') }}">
-                <span class="icon">🔥</span>
+                <span class="icon"><i class="fas fa-fire"></i></span>
                 <span>Quản lý Tin nóng</span>
             </a>
         @endif
 
         @if($canSocial)
             <a class="nav-item {{ $socialActive ? 'active' : '' }}" href="{{ url('admin/social/list') }}">
-                <span class="icon">📱</span>
+                <span class="icon"><i class="fas fa-share-alt"></i></span>
                 <span>Quản lý mạng XH</span>
             </a>
         @endif
@@ -200,7 +200,7 @@
 
         @if($canNewsletter)
             <a class="nav-item {{ $newsletterActive ? 'active' : '' }}" href="{{ url('admin/newsletter/list') }}">
-                <span class="icon">✉️</span>
+                <span class="icon"><i class="far fa-envelope"></i></span>
                 <span>Nhận tin KM</span>
                 @if($newsletterCount > 0)
                     <span class="nav-badge">{{ $badge($newsletterCount) }}</span>
@@ -210,7 +210,7 @@
 
         @if($canContact)
             <a class="nav-item {{ $contactActive ? 'active' : '' }}" href="{{ url('admin/contact/list') }}">
-                <span class="icon">📬</span>
+                <span class="icon"><i class="far fa-address-book"></i></span>
                 <span>Quản lý liên hệ</span>
                 @if($contactCount > 0)
                     <span class="nav-badge">{{ $badge($contactCount) }}</span>
@@ -220,7 +220,7 @@
 
         @if($canComment)
             <a class="nav-item {{ $commentActive ? 'active' : '' }}" href="{{ url('admin/comment/list') }}">
-                <span class="icon">💬</span>
+                <span class="icon"><i class="far fa-comments"></i></span>
                 <span>Quản lý bình luận</span>
                 @if($commentCount > 0)
                     <span class="nav-badge">{{ $badge($commentCount) }}</span>
@@ -228,7 +228,7 @@
             </a>
 
             <a class="nav-item {{ $ratingActive ? 'active' : '' }}" href="{{ url('admin/rating/list') }}">
-                <span class="icon">⭐</span>
+                <span class="icon"><i class="fas fa-star-half-alt"></i></span>
                 <span>Đánh giá sao</span>
             </a>
         @endif

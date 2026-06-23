@@ -63,6 +63,8 @@
     $ratingActive = $is('admin/rating', 'admin/rating/*');
 
     $searchKeyword = trim((string) request('keyword', ''));
+
+    $adminTheme = session('admin_theme', 'dark');
 @endphp
 <!DOCTYPE html>
 <html lang="vi">
@@ -88,7 +90,7 @@
     <link rel="stylesheet" href="{{ asset($adminDashboardCss) }}?v={{ $adminDashboardCssVersion }}">
     @stack('styles')
 </head>
-<body class="vu-admin-body{{ request()->is('admin/home') ? ' is-dashboard' : '' }}">
+<body class="vu-admin-body{{ request()->is('admin/home') ? ' is-dashboard' : '' }}" data-theme="{{ $adminTheme ?? 'dark' }}" data-csrf="{{ csrf_token() }}" data-theme-url="{{ url('admin/api/theme') }}">
 <div class="vu-overlay" data-sidebar-close></div>
 
 <div class="vu-admin-shell">
@@ -111,9 +113,18 @@
 
             <div class="topbar-right">
                 <form class="t-search" action="{{ data_get($adminShell, 'search_action', url('admin/news/list')) }}" method="GET">
-                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/><line x1="8.5" y1="8.5" x2="12" y2="12" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" class="search-icon"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.2"/><line x1="8.5" y1="8.5" x2="12" y2="12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
                     <input type="text" name="keyword" value="{{ $searchKeyword }}" placeholder="Tìm kiếm nội dung...">
                 </form>
+
+                <button class="theme-toggle" id="themeToggle" type="button" aria-label="Đổi giao diện sáng/tối" title="Đổi giao diện">
+                    <span class="theme-toggle-track">
+                        <span class="theme-toggle-thumb">
+                            <svg class="icon-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            <svg class="icon-moon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        </span>
+                    </span>
+                </button>
 
                 <div class="topbar-dropdown">
                     <button class="icon-btn" type="button" data-topbar-toggle="notifications" aria-label="Thông báo">
@@ -387,6 +398,62 @@
 
         updateAdminNotifications();
         setInterval(updateAdminNotifications, 15000);
+
+        // ---- Theme Toggle ----
+        (function () {
+            var body = document.body;
+            var toggle = document.getElementById('themeToggle');
+            var themeUrl = body.getAttribute('data-theme-url');
+            var csrfToken = body.getAttribute('data-csrf');
+
+            function applyTheme(theme) {
+                body.setAttribute('data-theme', theme);
+                try {
+                    localStorage.setItem('vu-admin-theme', theme);
+                } catch (e) {}
+            }
+
+            function getStoredTheme() {
+                try {
+                    return localStorage.getItem('vu-admin-theme');
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function getCurrentTheme() {
+                return body.getAttribute('data-theme') || 'dark';
+            }
+
+            function switchTheme() {
+                var current = getCurrentTheme();
+                var next = current === 'dark' ? 'light' : 'dark';
+                applyTheme(next);
+
+                if (themeUrl && csrfToken) {
+                    fetch(themeUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ theme: next }),
+                    }).catch(function () {});
+                }
+            }
+
+            // Apply stored theme on load (server-side already set via $adminTheme)
+            var stored = getStoredTheme();
+            var serverTheme = body.getAttribute('data-theme') || 'dark';
+            if (stored && stored !== serverTheme) {
+                applyTheme(stored);
+            }
+
+            if (toggle) {
+                toggle.addEventListener('click', switchTheme);
+            }
+        })();
     })();
 
     function ChangeToSlug() {

@@ -51,6 +51,9 @@
     $weeklyTotal = (int) ($weeklyViews['week'] ?? 0);
     $weeklyMonth = (int) ($weeklyViews['month'] ?? 0);
     $weeklyAllTime = (int) ($weeklyViews['all_time'] ?? 0);
+    $rangeStartValue = $dateRange['start_date'] ?? now()->copy()->subMonth()->toDateString();
+    $rangeEndValue = $dateRange['end_date'] ?? now()->toDateString();
+    $rangeKey = $dateRange['key'] ?? 'month';
 
     $statusDistribution = array_replace([
         'published' => 0, 'pending' => 0, 'featured' => 0, 'hot' => 0,
@@ -58,17 +61,7 @@
 
     $categoryRows = collect($categoryRatingStats ?? [])->values();
     if ($categoryRows->isEmpty()) {
-        $labels = $categoryStats['labels'] ?? [];
-        $counts = $categoryStats['data'] ?? [];
-        $colors = $categoryStats['colors'] ?? [];
-        $categoryRows = collect($labels)->map(function ($name, $index) use ($counts, $colors) {
-            return [
-                'name' => $name,
-                'news_count' => (int) ($counts[$index] ?? 0),
-                'color' => $colors[$index] ?? '#d1a53d',
-                'avg_rating' => 0, 'rating_count' => 0,
-            ];
-        });
+        $categoryRows = collect();
     }
 
     $authorPalette = ['#d1a53d', '#60a5fa', '#34d399', '#a78bfa', '#f87171', '#fb923c', '#e879f9'];
@@ -202,18 +195,6 @@
 
 @push('styles')
 <style>
-:root {
-  --bg:#0d0f14;--surface:#13161d;--surface2:#1a1e28;--surface3:#212535;
-  --border:rgba(255,255,255,0.06);--border-active:rgba(209,165,61,0.4);
-  --text:#e8eaf0;--text-muted:#6b7280;--text-dim:#9ca3af;
-  --gold:#d1a53d;--gold-light:#f0c060;--gold-dim:rgba(209,165,61,0.15);
-  --green:#34d399;--green-dim:rgba(52,211,153,0.12);
-  --red:#f87171;--red-dim:rgba(248,113,113,0.12);
-  --blue:#60a5fa;--blue-dim:rgba(96,165,250,0.12);
-  --purple:#a78bfa;--purple-dim:rgba(167,139,250,0.12);
-  --orange:#fb923c;--orange-dim:rgba(251,146,60,0.12);
-  --radius:12px;--radius-sm:8px;
-}
 .dashboard-content { display:flex; flex-direction:column; gap:20px; }
 .header-row { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
 .greeting h1 { font-size:22px; font-weight:800; }
@@ -225,7 +206,7 @@
 .date-picker { padding:6px 12px; border-radius:var(--radius-sm); background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); font-size:12px; cursor:pointer; font-family:'Be Vietnam Pro',sans-serif; }
 .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; position:relative; overflow:hidden; transition:border-color .2s; display:block; text-decoration:none; color:var(--text-dim); }
-.stat-card:hover { border-color:rgba(255,255,255,.12); }
+.stat-card:hover { border-color:var(--border-strong); }
 .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent-color); opacity:.8; }
 .stat-card.gold { --accent-color:var(--gold); }
 .stat-card.green { --accent-color:var(--green); }
@@ -273,8 +254,21 @@
 .section-title .dot { width:6px; height:6px; border-radius:50%; background:var(--gold); }
 .section-link { font-size:11px; color:var(--gold); cursor:pointer; background:none; border:none; font-family:inherit; font-weight:600; padding:0; }
 .section-link:hover { text-decoration:underline; }
+.table-actions { display:flex; gap:8px; align-items:center; }
+.table-actions .date-picker { min-width:140px; height:36px; font-weight:600; }
+.table-actions .section-link { height:36px; padding:0 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface2); display:inline-flex; align-items:center; justify-content:center; text-decoration:none; white-space:nowrap; }
+.table-actions .section-link:hover { border-color:var(--gold); background:var(--gold-dim); text-decoration:none; }
 .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
 .chart-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
+.chart-card-header { align-items:flex-start; gap:12px; }
+.chart-heading { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.chart-title-line { font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--text); }
+.chart-title-line .dot { width:6px; height:6px; border-radius:50%; background:var(--gold); flex-shrink:0; }
+.chart-subtitle { color:var(--text-muted); font-size:11px; line-height:1.45; }
+.chart-tabs { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.chart-context { display:flex; gap:8px; flex-wrap:wrap; margin:-2px 0 12px; }
+.chart-context-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface2); color:var(--text-muted); font-size:11px; }
+.chart-context-pill strong { color:var(--text); font-family:'JetBrains Mono',monospace; font-size:12px; }
 .chart-wrap { height:240px; position:relative; }
 .mini-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 .mini-stat { text-align:center; padding:10px; background:var(--surface2); border-radius:var(--radius-sm); border:1px solid var(--border); }
@@ -376,8 +370,71 @@ tbody td { padding:10px 8px; vertical-align:middle; }
 .tab-row { display:flex; gap:0; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px; margin-bottom:14px; }
 .tab-btn { flex:1; padding:5px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; font-family:'Be Vietnam Pro',sans-serif; transition:all .15s; }
 .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.3); }
+body.vu-admin-body[data-theme="light"] .date-picker {
+  background:#f8fafc !important;
+  border-color:#dfe4ee !important;
+  color:#4b5568 !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04) !important;
+}
+body.vu-admin-body[data-theme="light"] .date-picker:hover {
+  border-color:#c7cfdd !important;
+  color:#1f2937 !important;
+}
+body.vu-admin-body[data-theme="light"] .date-picker:focus {
+  border-color:rgba(184,134,11,.45) !important;
+  box-shadow:0 0 0 3px rgba(184,134,11,.10) !important;
+}
+body.vu-admin-body[data-theme="light"] .date-picker option {
+  background:#ffffff !important;
+  color:#374151 !important;
+}
+body.vu-admin-body[data-theme="light"] .date-picker option:checked {
+  background:#f3e7c8 !important;
+  color:#7a5400 !important;
+}
+body.vu-admin-body[data-theme="light"] .table-actions .section-link {
+  background:#f8fafc;
+  border-color:#dfe4ee;
+  color:#b8860b;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+body.vu-admin-body[data-theme="light"] .table-actions .section-link:hover {
+  background:#fff8e8;
+  border-color:rgba(184,134,11,.35);
+  color:#8a6208;
+}
 @keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
 .card, .stat-card, .rating-split-card { animation:fadeUp .35s ease both; }
+@media (max-width: 1200px) {
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .chart-row, .rating-overview, .perf-grid, .analytics-row { grid-template-columns:1fr; }
+}
+@media (max-width: 768px) {
+  .dashboard-content { gap:14px; }
+  .header-row { flex-direction:column; }
+  .header-row > div:last-child { width:100%; align-items:stretch !important; }
+  .time-filter { width:100%; overflow-x:auto; }
+  .tf-btn { flex:0 0 auto; }
+  .date-picker { width:100%; }
+  .mini-stats { grid-template-columns:repeat(2,1fr); }
+  .stats-grid { grid-template-columns:1fr; }
+  .stat-card, .card, .rating-split-card { padding:14px; }
+  .chart-wrap { height:220px; }
+  .donut-wrap { align-items:flex-start; flex-wrap:wrap; }
+  .section-header { align-items:flex-start; flex-direction:column; gap:10px; }
+  .chart-card-header { align-items:stretch; }
+  .chart-tabs { width:100%; justify-content:flex-start; overflow-x:auto; padding-bottom:2px; }
+  .chart-context-pill { flex:1 1 145px; }
+  .rating-split-card > div[style*="display:flex"] { flex-wrap:wrap; }
+  .table-wrap { max-width:100%; overflow-x:auto; }
+  .table-wrap table { min-width:760px; }
+}
+@media (max-width: 460px) {
+  .mini-stats { grid-template-columns:1fr; }
+  .greeting h1 { font-size:18px; }
+  .stat-value { font-size:30px; }
+  .big-score { font-size:40px; }
+}
 </style>
 @endpush
 
@@ -397,6 +454,9 @@ var chartData = @json($chartSeriesSafe);
 var dailySeries = @json($dailySeriesSafe);
 var statusChartData = @json($statusChartData);
 var ratingTrend = @json($ratingTrendSafe);
+var selectedRangeKey = 'selected';
+var selectedStartDate = @json($rangeStartValue);
+var selectedEndDate = @json($rangeEndValue);
 
 function starStr(r){var f=Math.max(0,Math.min(5,Math.round(Number(r)||0)));return '★'.repeat(f)+'☆'.repeat(5-f);}
 function starClass(r){r=Number(r)||0;return r>=4?'':r>=3?'mid':'low';}
@@ -404,33 +464,27 @@ function ratingColor(r){r=Number(r)||0;return r>=4?'var(--green)':r>=3?'var(--go
 function num(n){return new Intl.NumberFormat('en-US').format(Number(n)||0);}
 function initial(name){var p=String(name||'A').trim().split(/\s+/);return (p[p.length-1]||p[0]||'A').charAt(0).toUpperCase();}
 function esc(v){return String(v||'').replace(/[&<>"']/g,function(s){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s];});}
+function localDate(d){var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day;}
+function dashboardUrl(start,end){var url=new URL(window.location.href);url.searchParams.set('start_date',start);url.searchParams.set('end_date',end);return url.toString();}
 
 function setTime(btn,range){
   document.querySelectorAll('.time-filter .tf-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   var now=new Date(),start=new Date(now);
   if(range==='today') start=new Date(now);
-  else if(range==='week') start.setDate(now.getDate()-7);
+  else if(range==='week') start.setDate(now.getDate()-6);
   else if(range==='month') start.setMonth(now.getMonth()-1);
   else if(range==='quarter') start.setMonth(now.getMonth()-3);
   else if(range==='year') start.setFullYear(now.getFullYear()-1);
-  document.getElementById('startDate').value=start.toISOString().slice(0,10);
-  document.getElementById('endDate').value=now.toISOString().slice(0,10);
-  updateCharts(range);
+  document.getElementById('startDate').value=localDate(start);
+  document.getElementById('endDate').value=localDate(now);
+  window.location.href=dashboardUrl(localDate(start),localDate(now));
 }
 
 function applyDateRange(){
   var start=document.getElementById('startDate').value,end=document.getElementById('endDate').value;
-  var labels=[],views=[],posts=[],ratings=[];
-  (dailySeries.dates||[]).forEach(function(date,i){
-    if((start&&date<start)||(end&&date>end)) return;
-    var parts=date.split('-');
-    labels.push(parts.length===3?parts[2]+'/'+parts[1]:date);
-    views.push((dailySeries.views||[])[i]||0);
-    posts.push((dailySeries.posts||[])[i]||0);
-    ratings.push((dailySeries.ratings||[])[i]||0);
-  });
-  buildMainChart({labels:labels,views:views,posts:posts,ratings:ratings});
+  if(!start||!end||start>end) return;
+  window.location.href=dashboardUrl(start,end);
 }
 
 function renderAuthors(){
@@ -575,46 +629,89 @@ function renderTable(){
 
 function renderHeatmap(){
   var posts=dailySeries.posts||[],ratings=dailySeries.ratings||[],dates=dailySeries.dates||[],start=Math.max(0,dates.length-28);
-  var colors=['var(--surface3)','#d1a53d33','#d1a53d55','#d1a53d99','#d1a53d'];
+  var light=isLightTheme();
+  var colors=light?['var(--surface3)','rgba(184,134,11,0.18)','rgba(184,134,11,0.35)','rgba(184,134,11,0.6)','#b8860b']:['var(--surface3)','#d1a53d33','#d1a53d55','#d1a53d99','#d1a53d'];
   var html='';
   for(var i=start;i<dates.length;i++){var v=(posts[i]||0)+((ratings[i]||0)>0?1:0);html+='<div class="hm-day" style="background:'+colors[Math.min(v,4)]+'" data-tip="'+v+' bài"></div>';}
   document.getElementById('heatmap').innerHTML=html||'<div style="padding:12px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">Chưa có dữ liệu</div>';
 }
 
 var mainChartInst=null,donutInst=null,catChartInst=null,radarInst=null,trendInst=null;
-var currentMode='views',currentRange='month';
+var currentMode='views',currentRange=selectedRangeKey;
+
+function isLightTheme(){return(document.body.getAttribute('data-theme')||'dark')==='light';}
+
+function chartColors(mode){var light=isLightTheme();if(mode==='views')return light?'#b8860b':'#d1a53d';if(mode==='posts')return light?'#2563c8':'#60a5fa';return light?'#0d9e6e':'#34d399';}
+function chartBgColors(mode){var light=isLightTheme();if(mode==='views')return light?'rgba(184,134,11,0.12)':'rgba(209,165,61,0.18)';if(mode==='posts')return light?'rgba(37,99,200,0.12)':'rgba(96,165,250,0.18)';return light?'rgba(13,158,110,0.12)':'rgba(52,211,153,0.12)';}
+function tooltipBg(){return isLightTheme()?'#ffffff':'#1a1e28';}
+function tooltipBorder(){return isLightTheme()?'rgba(0,0,0,0.08)':'rgba(255,255,255,0.08)';}
+function tooltipText(){return isLightTheme()?'#1a1d27':'#e8eaf0';}
+function gridColor(){return isLightTheme()?'rgba(0,0,0,0.04)':'rgba(255,255,255,0.04)';}
+function tickColor(){return isLightTheme()?'#8b92a9':'#6b7280';}
 
 function chartSet(rs){return typeof rs==='object'?rs:(chartData[rs]||chartData.month||{labels:[],views:[],posts:[],ratings:[]});}
+function chartModeConfig(mode){
+  var configs={
+    views:{title:'Lượt xem theo thời gian',subtitle:'Theo dõi tổng lượt xem bài viết trong khoảng thời gian đang chọn.',label:'Lượt xem',unit:'lượt',primaryLabel:'Tổng lượt xem',secondaryLabel:'Mốc có lượt xem'},
+    posts:{title:'Bài viết theo thời gian',subtitle:'Theo dõi số bài viết phát sinh theo từng mốc thời gian.',label:'Bài viết',unit:'bài',primaryLabel:'Tổng bài viết',secondaryLabel:'Mốc có bài viết'},
+    ratings:{title:'Đánh giá theo thời gian',subtitle:'Theo dõi điểm đánh giá trung bình của độc giả theo từng mốc thời gian.',label:'Điểm đánh giá TB',unit:'điểm',primaryLabel:'Điểm trung bình',secondaryLabel:'Mốc có đánh giá'}
+  };
+  return configs[mode]||configs.views;
+}
+function cleanNumbers(vals){return(vals||[]).map(function(v){return Number(v)||0;});}
+function sumNumbers(vals){return vals.reduce(function(total,v){return total+v;},0);}
+function avgNonZero(vals){var active=vals.filter(function(v){return v>0;});return active.length?sumNumbers(active)/active.length:0;}
+function updateMainChartContext(vals){
+  var cfg=chartModeConfig(currentMode),clean=cleanNumbers(vals);
+  var activeCount=clean.filter(function(v){return v>0;}).length;
+  var title=document.getElementById('mainChartTitle');
+  var subtitle=document.getElementById('mainChartSubtitle');
+  var primaryLabel=document.getElementById('mainChartPrimaryLabel');
+  var primary=document.getElementById('mainChartPrimary');
+  var secondaryLabel=document.getElementById('mainChartSecondaryLabel');
+  var secondary=document.getElementById('mainChartSecondary');
+  if(title) title.textContent=cfg.title;
+  if(subtitle) subtitle.textContent=cfg.subtitle;
+  if(primaryLabel) primaryLabel.textContent=cfg.primaryLabel;
+  if(secondaryLabel) secondaryLabel.textContent=cfg.secondaryLabel;
+  if(primary) primary.textContent=currentMode==='ratings'?avgNonZero(clean).toFixed(1)+' '+cfg.unit:num(sumNumbers(clean))+' '+cfg.unit;
+  if(secondary) secondary.textContent=num(activeCount);
+}
 function buildMainChart(rs){
   var d=chartSet(rs),isRating=currentMode==='ratings';
   var vals=currentMode==='views'?d.views:currentMode==='posts'?d.posts:d.ratings;
-  var label=currentMode==='views'?'Lượt xem':currentMode==='posts'?'Bài viết':'Điểm đánh giá TB';
-  var col=currentMode==='views'?'#d1a53d':currentMode==='posts'?'#60a5fa':'#34d399';
-  var ds=[{label:label,data:vals||[],backgroundColor:col+'30',borderColor:col,borderWidth:2,borderRadius:4,borderSkipped:false,type:isRating?'line':'bar',tension:.4,pointRadius:isRating?4:0,fill:false}];
-  if(!isRating){ds.push({label:'',data:(vals||[]).map(function(v){return v*0.6;}),type:'line',borderColor:'rgba(96,165,250,.5)',borderWidth:1.5,pointRadius:0,tension:.4,fill:false});}
-  var cfg={type:'bar',data:{labels:d.labels||[],datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,.08)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:col}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280',font:{size:11}},beginAtZero:!isRating}}}};
+  var label=chartModeConfig(currentMode).label;
+  var col=chartColors(currentMode),bgCol=chartBgColors(currentMode);
+  updateMainChartContext(vals);
+  var ds=[{label:label,data:vals||[],backgroundColor:bgCol,borderColor:col,borderWidth:2,borderRadius:4,borderSkipped:false,type:isRating?'line':'bar',tension:.4,pointRadius:isRating?4:0,fill:false}];
+  if(!isRating){ds.push({label:'',data:(vals||[]).map(function(v){return v*0.6;}),type:'line',borderColor:col+'55',borderWidth:1.5,pointRadius:0,tension:.4,fill:false});}
+  var cfg={type:'bar',data:{labels:d.labels||[],datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:tooltipBg(),borderColor:tooltipBorder(),borderWidth:1,titleColor:tooltipText(),bodyColor:col}},scales:{x:{grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:11}}},y:{grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:11}},beginAtZero:!isRating}}}};
   if(isRating){cfg.options.scales.y.min=1;cfg.options.scales.y.max=5;}
   if(mainChartInst)mainChartInst.destroy();
   mainChartInst=new Chart(document.getElementById('mainChart'),cfg);
 }
 function buildDonut(){
+  var light=isLightTheme(),bg=light?'#ffffff':'#1a1e28',tc=light?'#1a1d27':'#e8eaf0',bc=light?'#8b92a9':'#9ca3af';
+  var colors=light?['#0d9e6e','#b8860b','#2563c8','#6d40c8']:['#34d399','#d1a53d','#60a5fa','#a78bfa'];
   if(donutInst)donutInst.destroy();
-  donutInst=new Chart(document.getElementById('donutChart'),{type:'doughnut',data:{labels:['Xuất bản','Chờ duyệt','Nổi bật','Tin nóng'],datasets:[{data:statusChartData,backgroundColor:['#34d399','#d1a53d','#60a5fa','#a78bfa'],borderWidth:0,hoverOffset:4}]},options:{responsive:false,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1e28',titleColor:'#e8eaf0',bodyColor:'#9ca3af'}}}});
+  donutInst=new Chart(document.getElementById('donutChart'),{type:'doughnut',data:{labels:['Xuất bản','Chờ duyệt','Nổi bật','Tin nóng'],datasets:[{data:statusChartData,backgroundColor:colors,borderWidth:0,hoverOffset:4}]},options:{responsive:false,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:bg,titleColor:tc,bodyColor:bc}}}});
 }
 function buildCatChart(){
   if(catChartInst)catChartInst.destroy();
-  catChartInst=new Chart(document.getElementById('catChart'),{type:'bar',data:{labels:categories.map(function(c){return c.name;}),datasets:[{data:categories.map(function(c){return c.count;}),backgroundColor:categories.map(function(c){return c.color+'44';}),borderColor:categories.map(function(c){return c.color;}),borderWidth:2,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1e28',titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:11}}}}}});
+  catChartInst=new Chart(document.getElementById('catChart'),{type:'bar',data:{labels:categories.map(function(c){return c.name;}),datasets:[{data:categories.map(function(c){return c.count;}),backgroundColor:categories.map(function(c){return c.color+'44';}),borderColor:categories.map(function(c){return c.color;}),borderWidth:2,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:tooltipBg(),titleColor:tooltipText(),bodyColor:tickColor()}},scales:{x:{grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:10}}},y:{grid:{display:false},ticks:{color:tickColor(),font:{size:11}}}}}});
 }
 function buildRadar(){
+  var light=isLightTheme(),gc=light?'rgba(184,134,11,.15)':'rgba(209,165,61,.15)',bc=light?'#b8860b':'#d1a53d',tc=light?'#8b92a9':'#9ca3af',tc2=light?'#4b5268':'#9ca3af',pc=light?'rgba(0,0,0,.07)':'rgba(255,255,255,.06)';
   if(radarInst)radarInst.destroy();
-  radarInst=new Chart(document.getElementById('radarChart'),{type:'radar',data:{labels:categories.map(function(c){return c.name;}),datasets:[{label:'Điểm TB',data:categories.map(function(c){return c.rating;}),backgroundColor:'rgba(209,165,61,.15)',borderColor:'#d1a53d',borderWidth:2,pointBackgroundColor:'#d1a53d',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{min:0,max:5,ticks:{stepSize:1,color:'#6b7280',font:{size:9},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,.06)'},angleLines:{color:'rgba(255,255,255,.06)'},pointLabels:{color:'#9ca3af',font:{size:10}}}},plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1e28',titleColor:'#e8eaf0',bodyColor:'#d1a53d'}}}});
+  radarInst=new Chart(document.getElementById('radarChart'),{type:'radar',data:{labels:categories.map(function(c){return c.name;}),datasets:[{label:'Điểm TB',data:categories.map(function(c){return c.rating;}),backgroundColor:gc,borderColor:bc,borderWidth:2,pointBackgroundColor:bc,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{min:0,max:5,ticks:{stepSize:1,color:tc,font:{size:9},backdropColor:'transparent'},grid:{color:pc},angleLines:{color:pc},pointLabels:{color:tc2,font:{size:10}}}},plugins:{legend:{display:false},tooltip:{backgroundColor:tooltipBg(),titleColor:tooltipText(),bodyColor:bc}}}});
 }
 function buildRatingTrend(){
+  var light=isLightTheme(),gc=light?'rgba(184,134,11,.1)':'rgba(209,165,61,.1)',bc=light?'#b8860b':'#d1a53d';
   if(trendInst)trendInst.destroy();
-  trendInst=new Chart(document.getElementById('ratingTrendChart'),{type:'line',data:{labels:ratingTrend.labels||[],datasets:[{data:ratingTrend.data||[],borderColor:'#d1a53d',borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(209,165,61,.1)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,min:0,max:5}}}});
+  trendInst=new Chart(document.getElementById('ratingTrendChart'),{type:'line',data:{labels:ratingTrend.labels||[],datasets:[{data:ratingTrend.data||[],borderColor:bc,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:gc}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,min:0,max:5}}}});
 }
 function switchChart(btn,mode){
-  document.querySelectorAll('.chart-row .tf-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.chart-tabs .tf-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   currentMode=mode;
   buildMainChart(currentRange);
@@ -630,14 +727,31 @@ window.addEventListener('DOMContentLoaded',function(){
   renderAuthorTable();
   renderTable();
   renderHeatmap();
-  buildMainChart('month');
+  buildMainChart(selectedRangeKey);
+  document.querySelectorAll('.time-filter .tf-btn').forEach(function(btn){
+    btn.classList.toggle('active', btn.getAttribute('onclick') && btn.getAttribute('onclick').indexOf("'" + @json($rangeKey) + "'") !== -1);
+  });
   buildDonut();
   buildCatChart();
   buildRadar();
   buildRatingTrend();
-  var now=new Date(),start=new Date(now);start.setMonth(now.getMonth()-1);
-  document.getElementById('startDate').value=start.toISOString().slice(0,10);
-  document.getElementById('endDate').value=now.toISOString().slice(0,10);
+  document.getElementById('startDate').value=selectedStartDate;
+  document.getElementById('endDate').value=selectedEndDate;
+
+  // Rebuild charts when theme changes
+  var observer=new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      if(m.attributeName==='data-theme'){
+        buildMainChart(currentRange);
+        buildDonut();
+        buildCatChart();
+        buildRadar();
+        buildRatingTrend();
+        renderHeatmap();
+      }
+    });
+  });
+  observer.observe(document.body,{attributes:true,attributeFilter:['data-theme']});
 });
 </script>
 @endpush
@@ -654,15 +768,15 @@ window.addEventListener('DOMContentLoaded',function(){
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div class="time-filter">
-                <button class="tf-btn" type="button" onclick="setTime(this,'today')">Hôm nay</button>
-                <button class="tf-btn" type="button" onclick="setTime(this,'week')">Tuần này</button>
-                <button class="tf-btn active" type="button" onclick="setTime(this,'month')">Tháng này</button>
-                <button class="tf-btn" type="button" onclick="setTime(this,'quarter')">Quý</button>
-                <button class="tf-btn" type="button" onclick="setTime(this,'year')">Năm</button>
+                <button class="tf-btn {{ $rangeKey === 'today' ? 'active' : '' }}" type="button" onclick="setTime(this,'today')">Hôm nay</button>
+                <button class="tf-btn {{ $rangeKey === 'week' ? 'active' : '' }}" type="button" onclick="setTime(this,'week')">Tuần này</button>
+                <button class="tf-btn {{ $rangeKey === 'month' ? 'active' : '' }}" type="button" onclick="setTime(this,'month')">Tháng này</button>
+                <button class="tf-btn {{ $rangeKey === 'quarter' ? 'active' : '' }}" type="button" onclick="setTime(this,'quarter')">Quý</button>
+                <button class="tf-btn {{ $rangeKey === 'year' ? 'active' : '' }}" type="button" onclick="setTime(this,'year')">Năm</button>
             </div>
-            <input type="date" class="date-picker" id="startDate" value="{{ now()->copy()->subMonth()->toDateString() }}">
+            <input type="date" class="date-picker" id="startDate" value="{{ $rangeStartValue }}">
             <span style="color:var(--text-muted);font-size:12px;">—</span>
-            <input type="date" class="date-picker" id="endDate" value="{{ now()->toDateString() }}">
+            <input type="date" class="date-picker" id="endDate" value="{{ $rangeEndValue }}">
             <button class="tf-btn active" type="button" onclick="applyDateRange()" style="background:var(--gold);color:#000;">Áp dụng</button>
         </div>
     </div>
@@ -732,13 +846,20 @@ window.addEventListener('DOMContentLoaded',function(){
 
     <div class="chart-row">
         <div class="card">
-            <div class="section-header">
-                <div class="section-title"><div class="dot"></div> Lượt xem theo thời gian</div>
-                <div style="display:flex;gap:6px;">
+            <div class="section-header chart-card-header">
+                <div class="chart-heading">
+                    <div class="chart-title-line"><div class="dot"></div><span id="mainChartTitle">Lượt xem theo thời gian</span></div>
+                    <div class="chart-subtitle" id="mainChartSubtitle">Theo dõi tổng lượt xem bài viết trong khoảng thời gian đang chọn.</div>
+                </div>
+                <div class="chart-tabs">
                     <button class="tf-btn active" style="padding:4px 10px;font-size:11px;" type="button" onclick="switchChart(this,'views')">Lượt xem</button>
                     <button class="tf-btn" style="padding:4px 10px;font-size:11px;" type="button" onclick="switchChart(this,'posts')">Bài viết</button>
                     <button class="tf-btn" style="padding:4px 10px;font-size:11px;" type="button" onclick="switchChart(this,'ratings')">Đánh giá</button>
                 </div>
+            </div>
+            <div class="chart-context" aria-live="polite">
+                <div class="chart-context-pill"><span id="mainChartPrimaryLabel">Tổng lượt xem</span><strong id="mainChartPrimary">0 lượt</strong></div>
+                <div class="chart-context-pill"><span id="mainChartSecondaryLabel">Mốc có lượt xem</span><strong id="mainChartSecondary">0</strong></div>
             </div>
             <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
         </div>
@@ -856,8 +977,8 @@ window.addEventListener('DOMContentLoaded',function(){
     <div class="card">
         <div class="section-header">
             <div class="section-title"><div class="dot"></div> Bảng tổng hợp tác giả</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-                <select class="date-picker" id="author-sort" onchange="renderAuthorTable()" style="min-width:140px;">
+            <div class="table-actions">
+                <select class="date-picker" id="author-sort" onchange="renderAuthorTable()">
                     <option value="posts">Sắp xếp: Bài viết</option>
                     <option value="views">Sắp xếp: Lượt xem</option>
                     <option value="rating">Sắp xếp: Đánh giá</option>
@@ -910,7 +1031,7 @@ window.addEventListener('DOMContentLoaded',function(){
     <div class="card">
         <div class="section-header">
             <div class="section-title"><div class="dot"></div> Bài viết nhiều lượt xem nhất</div>
-            <div style="display:flex;gap:6px;align-items:center;">
+            <div class="table-actions">
                 <select class="date-picker" id="article-filter" onchange="filterTable()" style="min-width:130px;">
                     <option value="all">Tất cả thể loại</option>
                     @foreach($articleCategoryOptions as $category)

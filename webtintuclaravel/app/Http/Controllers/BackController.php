@@ -41,42 +41,43 @@ class BackController extends Controller
         $this->middleware('auth');
     }
 
-    public function home()
+    public function home(Request $request)
     {
         $user = Auth::user();
+        $dateRange = $this->resolveDashboardDateRange($request);
+        $rangeStart = $dateRange['start'];
+        $rangeEnd = $dateRange['end'];
 
         $stats = [
-            'news_total' => News::count(),
-            'news_published' => News::where('Status', 1)->count(),
-            'news_draft' => NewsSchedule::where('status', 'draft')->count(),
-            'news_pending' => NewsSchedule::where('status', 'pending')->count(),
-            'news_scheduled' => NewsSchedule::where('status', 'scheduled')->count(),
-            'comment_total' => \App\Models\NewsComment::count(),
-            'comment_pending' => \App\Models\NewsComment::where('is_active', false)->count(),
-            'contacts_new' => Contact::query()->unread()->count(),
-            'members_total' => User::query()->regularAccounts()->count(),
-            'newsletter_total' => Newsletter::count(),
+            'news_total' => $this->applyDashboardNewsDateFilter(News::query(), $rangeStart, $rangeEnd)->count(),
+            'news_published' => $this->applyDashboardNewsDateFilter(News::where('Status', 1), $rangeStart, $rangeEnd)->count(),
+            'news_draft' => NewsSchedule::where('status', 'draft')->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'news_pending' => NewsSchedule::where('status', 'pending')->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'news_scheduled' => NewsSchedule::where('status', 'scheduled')->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'comment_total' => \App\Models\NewsComment::whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'comment_pending' => \App\Models\NewsComment::where('is_active', false)->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'contacts_new' => Contact::query()->unread()->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'members_total' => User::query()->regularAccounts()->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'newsletter_total' => Newsletter::whereBetween('subscribed_at', [$rangeStart, $rangeEnd])->count(),
             'notif_unread' => Notification::unreadCount($user->id),
         ];
 
         $weeklyViews = $this->getWeeklyViews();
-        $recentActivities = $this->getRecentActivities();
-        $categoryStats = $this->getCategoryStats();
-        $topAuthors = $this->getTopAuthors();
+        $recentActivities = $this->getRecentActivities($rangeStart, $rangeEnd);
 
-        $topRatedArticles = $this->getTopRatedArticles(5);
-        $lowestRatedArticles = $this->getLowestRatedArticles(5);
-        $mostProlificAuthors = $this->getMostProlificAuthors(5);
-        $authorsTopRated = $this->getAuthorsByHighestRatingRatio(5);
-        $authorsLowestRated = $this->getAuthorsByLowestRatingRatio(5);
-        $ratingOverview = $this->getRatingOverview();
-        $authorPerformance = $this->getAuthorPerformanceTable(12);
-        $topViewedArticles = $this->getTopViewedArticles(10);
-        $categoryRatingStats = $this->getCategoryRatingStats();
-        $statusDistribution = $this->getDashboardStatusDistribution();
-        $ratingTrend = $this->getRatingTrend();
-        $chartSeries = $this->getDashboardChartSeries();
-        $dailySeries = $this->getDashboardDailySeries();
+        $topRatedArticles = $this->getTopRatedArticles(5, $rangeStart, $rangeEnd);
+        $lowestRatedArticles = $this->getLowestRatedArticles(5, $rangeStart, $rangeEnd);
+        $mostProlificAuthors = $this->getMostProlificAuthors(5, $rangeStart, $rangeEnd);
+        $authorsTopRated = $this->getAuthorsByHighestRatingRatio(5, $rangeStart, $rangeEnd);
+        $authorsLowestRated = $this->getAuthorsByLowestRatingRatio(5, $rangeStart, $rangeEnd);
+        $ratingOverview = $this->getRatingOverview($rangeStart, $rangeEnd);
+        $authorPerformance = $this->getAuthorPerformanceTable(12, $rangeStart, $rangeEnd);
+        $topViewedArticles = $this->getTopViewedArticles(10, $rangeStart, $rangeEnd);
+        $categoryRatingStats = $this->getCategoryRatingStats($rangeStart, $rangeEnd);
+        $statusDistribution = $this->getDashboardStatusDistribution($rangeStart, $rangeEnd);
+        $ratingTrend = $this->getRatingTrend($rangeStart, $rangeEnd);
+        $chartSeries = $this->getDashboardChartSeries($rangeStart, $rangeEnd);
+        $dailySeries = $this->getDashboardDailySeries(28);
 
         $stats['rating_total'] = (int) ($ratingOverview['total'] ?? 0);
         $stats['rating_average'] = (float) ($ratingOverview['average'] ?? 0);
@@ -87,7 +88,7 @@ class BackController extends Controller
 
         $featuredIds = FeaturedNews::query()->active()->pluck('news_id')->all();
 
-        $latestNews = News::with(['author', 'category', 'latestSchedule'])
+        $latestNews = $this->applyDashboardNewsDateFilter(News::with(['author', 'category', 'latestSchedule']), $rangeStart, $rangeEnd)
             ->orderByDesc('created_at')
             ->limit(5)
             ->get()
@@ -111,8 +112,6 @@ class BackController extends Controller
             'stats',
             'weeklyViews',
             'recentActivities',
-            'categoryStats',
-            'topAuthors',
             'latestNews',
             'topRatedArticles',
             'lowestRatedArticles',
@@ -126,7 +125,8 @@ class BackController extends Controller
             'statusDistribution',
             'ratingTrend',
             'chartSeries',
-            'dailySeries'
+            'dailySeries',
+            'dateRange'
         ));
     }
 
@@ -203,6 +203,20 @@ class BackController extends Controller
         return response()->json([
             'success' => true,
             'count' => Notification::unreadCount($userId),
+        ]);
+    }
+
+    public function api_theme(Request $request)
+    {
+        $theme = $request->input('theme', 'dark');
+        if (!in_array($theme, ['dark', 'light'])) {
+            $theme = 'dark';
+        }
+        session(['admin_theme' => $theme]);
+
+        return response()->json([
+            'success' => true,
+            'theme' => $theme,
         ]);
     }
 
@@ -1957,6 +1971,66 @@ class BackController extends Controller
         return $currentAuthorId;
     }
 
+    private function resolveDashboardDateRange(Request $request): array
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        $end = $request->filled('end_date')
+            ? \Carbon\Carbon::parse($request->input('end_date'))->endOfDay()
+            : now()->copy()->endOfDay();
+
+        $start = $request->filled('start_date')
+            ? \Carbon\Carbon::parse($request->input('start_date'))->startOfDay()
+            : now()->copy()->subMonth()->startOfDay();
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'key' => $this->detectDashboardRangeKey($start, $end),
+        ];
+    }
+
+    private function detectDashboardRangeKey(\Carbon\Carbon $start, \Carbon\Carbon $end): string
+    {
+        $today = now()->copy()->startOfDay();
+        $endDay = $end->copy()->startOfDay();
+
+        if (!$endDay->equalTo($today)) {
+            return 'custom';
+        }
+
+        $days = $start->copy()->startOfDay()->diffInDays($today);
+
+        return match ($days) {
+            0 => 'today',
+            7, 6 => 'week',
+            31, 30, 29, 28 => 'month',
+            92, 91, 90, 89 => 'quarter',
+            366, 365, 364 => 'year',
+            default => 'custom',
+        };
+    }
+
+    private function applyDashboardNewsDateFilter($query, \Carbon\Carbon $start, \Carbon\Carbon $end, string $table = 'news')
+    {
+        return $query->where(function ($dateQuery) use ($start, $end, $table) {
+            $dateColumn = $table . '.Date';
+            $createdColumn = $table . '.created_at';
+
+            $dateQuery->whereBetween($dateColumn, [$start->toDateString(), $end->toDateString()])
+                ->orWhere(function ($fallbackQuery) use ($start, $end, $dateColumn, $createdColumn) {
+                    $fallbackQuery->where(function ($emptyDateQuery) use ($dateColumn) {
+                        $emptyDateQuery->whereNull($dateColumn)->orWhere($dateColumn, '');
+                    })->whereBetween($createdColumn, [$start, $end]);
+                });
+        });
+    }
+
     private function getWeeklyViews(): array
     {
         $start = \Carbon\Carbon::today()->subDays(6);
@@ -1983,16 +2057,15 @@ class BackController extends Controller
             $data[] = (int) ($stats[$date->toDateString()] ?? 0);
         }
 
-        $today = (int) (NewsViewStat::query()
-            ->whereDate('view_date', today())
-            ->sum('total_views'));
+        $today = (int) ($stats[today()->toDateString()] ?? 0);
         $week = array_sum($data);
         $month = (int) (NewsViewStat::query()
-            ->whereYear('view_date', now()->year)
-            ->whereMonth('view_date', now()->month)
+            ->whereBetween('view_date', [
+                now()->copy()->startOfMonth()->toDateString(),
+                now()->copy()->endOfMonth()->toDateString(),
+            ])
             ->sum('total_views'));
         $allTime = (int) News::query()->sum('Views');
-        $trackingStartedAt = NewsViewStat::query()->min('view_date');
 
         return [
             'labels' => $labels,
@@ -2002,16 +2075,15 @@ class BackController extends Controller
             'week' => $week,
             'month' => $month,
             'all_time' => $allTime,
-            'tracked' => NewsViewStat::query()->exists(),
-            'tracking_started_at' => $trackingStartedAt,
         ];
     }
 
-    private function getRecentActivities(): array
+    private function getRecentActivities(\Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         $activities = collect();
 
         News::query()
+            ->whereBetween('created_at', [$start, $end])
             ->latest('created_at')
             ->limit(4)
             ->get(['RowID', 'Name', 'Title', 'created_at'])
@@ -2029,6 +2101,7 @@ class BackController extends Controller
             });
 
         \App\Models\NewsComment::query()
+            ->whereBetween('created_at', [$start, $end])
             ->latest('created_at')
             ->limit(4)
             ->get(['id', 'content', 'created_at'])
@@ -2044,6 +2117,7 @@ class BackController extends Controller
             });
 
         Contact::query()
+            ->whereBetween('created_at', [$start, $end])
             ->latest('created_at')
             ->limit(4)
             ->selectRaw('RowID as id, Name, subject, created_at')
@@ -2068,13 +2142,14 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getCategoryStats(): array
+    private function getCategoryStats(\Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         $palette = ['#c9a84c', '#4a9eff', '#5cb97b', '#e57373', '#8f7cff', '#00b8a9', '#f78c6b', '#90caf9'];
         $rows = NewsCategory::query()
-            ->leftJoin('news', function ($join) {
+            ->leftJoin('news', function ($join) use ($start, $end) {
                 $join->on('news_cat.RowID', '=', 'news.RowIDCat')
                     ->where('news.Status', 1);
+                $this->applyDashboardNewsDateFilter($join, $start, $end);
             })
             ->groupBy('news_cat.RowID', 'news_cat.Name', 'news_cat.color')
             ->orderByDesc(DB::raw('COUNT(news.RowID)'))
@@ -2095,12 +2170,13 @@ class BackController extends Controller
         ];
     }
 
-    private function getTopAuthors(): array
+    private function getTopAuthors(\Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         return User::query()
             ->adminAccounts()
-            ->withCount(['authoredNews as news_count' => function ($query) {
+            ->withCount(['authoredNews as news_count' => function ($query) use ($start, $end) {
                 $query->where('Status', 1);
+                $this->applyDashboardNewsDateFilter($query, $start, $end);
             }])
             ->orderByDesc('news_count')
             ->orderBy('fullname')
@@ -2116,11 +2192,12 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getTopRatedArticles(int $limit = 5): array
+    private function getTopRatedArticles(int $limit = 5, ?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
         return DB::table('news')
             ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
             ->where('news.Status', 1)
+            ->when($start && $end, fn ($query) => $query->whereBetween('news_ratings.created_at', [$start, $end]))
             ->groupBy('news.RowID', 'news.Name', 'news.Title')
             ->selectRaw('
                 news.RowID,
@@ -2146,11 +2223,12 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getLowestRatedArticles(int $limit = 5): array
+    private function getLowestRatedArticles(int $limit = 5, ?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
         return DB::table('news')
             ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
             ->where('news.Status', 1)
+            ->when($start && $end, fn ($query) => $query->whereBetween('news_ratings.created_at', [$start, $end]))
             ->groupBy('news.RowID', 'news.Name', 'news.Title')
             ->selectRaw('
                 news.RowID,
@@ -2176,16 +2254,21 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getMostProlificAuthors(int $limit = 5): array
+    private function getMostProlificAuthors(int $limit = 5, \Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         return User::query()
             ->adminAccounts()
-            ->whereHas('authoredNews')
-            ->withCount(['authoredNews as published_count' => function ($q) {
-                $q->where('Status', 1);
-            }])
-            ->withCount(['authoredNews as total_count' => function ($q) {
+            ->whereHas('authoredNews', function ($q) use ($start, $end) {
                 $q->where('Status', '>=', 0);
+                $this->applyDashboardNewsDateFilter($q, $start, $end);
+            })
+            ->withCount(['authoredNews as published_count' => function ($q) use ($start, $end) {
+                $q->where('Status', 1);
+                $this->applyDashboardNewsDateFilter($q, $start, $end);
+            }])
+            ->withCount(['authoredNews as total_count' => function ($q) use ($start, $end) {
+                $q->where('Status', '>=', 0);
+                $this->applyDashboardNewsDateFilter($q, $start, $end);
             }])
             ->orderByDesc('published_count')
             ->orderByDesc('total_count')
@@ -2206,12 +2289,13 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getAuthorsByHighestRatingRatio(int $limit = 5): array
+    private function getAuthorsByHighestRatingRatio(int $limit = 5, ?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
         $authorStats = DB::table('news')
             ->join('users', 'news.author_id', '=', 'users.id')
             ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
             ->where('news.Status', 1)
+            ->when($start && $end, fn ($query) => $query->whereBetween('news_ratings.created_at', [$start, $end]))
             ->groupBy('users.id', 'users.fullname', 'users.username', 'users.level')
             ->selectRaw('
                 users.id,
@@ -2251,12 +2335,13 @@ class BackController extends Controller
         })->all();
     }
 
-    private function getAuthorsByLowestRatingRatio(int $limit = 5): array
+    private function getAuthorsByLowestRatingRatio(int $limit = 5, ?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
         $authorStats = DB::table('news')
             ->join('users', 'news.author_id', '=', 'users.id')
             ->join('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
             ->where('news.Status', 1)
+            ->when($start && $end, fn ($query) => $query->whereBetween('news_ratings.created_at', [$start, $end]))
             ->groupBy('users.id', 'users.fullname', 'users.username', 'users.level')
             ->selectRaw('
                 users.id,
@@ -2296,9 +2381,12 @@ class BackController extends Controller
         })->all();
     }
 
-    private function getRatingOverview(): array
+    private function getRatingOverview(?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
-        $distribution = NewsRating::query()
+        $ratingQuery = NewsRating::query()
+            ->when($start && $end, fn ($query) => $query->whereBetween('created_at', [$start, $end]));
+
+        $distribution = (clone $ratingQuery)
             ->selectRaw('score, COUNT(*) as count')
             ->groupBy('score')
             ->pluck('count', 'score')
@@ -2310,8 +2398,12 @@ class BackController extends Controller
 
         return [
             'total' => (int) $totalRatings,
-            'average' => round((float) (NewsRating::avg('score') ?? 0), 1),
-            'rated_articles' => News::query()->where('Status', 1)->whereHas('ratings')->count(),
+            'average' => round((float) ((clone $ratingQuery)->avg('score') ?? 0), 1),
+            'rated_articles' => News::query()->where('Status', 1)->whereHas('ratings', function ($query) use ($start, $end) {
+                if ($start && $end) {
+                    $query->whereBetween('created_at', [$start, $end]);
+                }
+            })->count(),
             'distribution' => $distribution,
             'max_distribution' => max(1, max($distribution)),
             'positive_total' => (int) (($distribution[4] ?? 0) + ($distribution[5] ?? 0)),
@@ -2319,48 +2411,69 @@ class BackController extends Controller
         ];
     }
 
-    private function getAuthorPerformanceTable(int $limit = 12): array
+    private function getAuthorPerformanceTable(int $limit = 12, \Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
-        $authors = User::query()
+        $viewsSubquery = NewsViewStat::query()
+            ->selectRaw('news_id, SUM(total_views) as range_views')
+            ->whereBetween('view_date', [$start->toDateString(), $end->toDateString()])
+            ->groupBy('news_id');
+
+        $ratingsSubquery = NewsRating::query()
+            ->selectRaw('
+                news_id,
+                COUNT(*) as total_ratings,
+                SUM(score) as score_sum,
+                SUM(CASE WHEN score >= 4 THEN 1 ELSE 0 END) as positive_ratings,
+                SUM(CASE WHEN score <= 2 THEN 1 ELSE 0 END) as negative_ratings
+            ')
+            ->whereBetween('created_at', [$start, $end])
+            ->groupBy('news_id');
+
+        $query = User::query()
             ->adminAccounts()
-            ->whereHas('authoredNews')
-            ->withCount(['authoredNews as published_count' => function ($query) {
-                $query->where('Status', 1);
-            }])
-            ->orderByDesc('published_count')
-            ->limit(max($limit, 20))
-            ->get(['id', 'fullname', 'username', 'level']);
+            ->join('news', function ($join) {
+                $join->on('users.id', '=', 'news.author_id')
+                    ->where('news.Status', 1);
+            })
+            ->leftJoinSub($viewsSubquery, 'range_views', function ($join) {
+                $join->on('news.RowID', '=', 'range_views.news_id');
+            })
+            ->leftJoinSub($ratingsSubquery, 'range_ratings', function ($join) {
+                $join->on('news.RowID', '=', 'range_ratings.news_id');
+            });
 
-        return $authors->map(function (User $user) {
-            $newsIds = News::query()
-                ->where('Status', 1)
-                ->where('author_id', $user->id)
-                ->pluck('RowID');
+        $this->applyDashboardNewsDateFilter($query, $start, $end);
 
-            $ratingRows = NewsRating::query()
-                ->whereIn('news_id', $newsIds)
-                ->selectRaw('
-                    COUNT(*) as total_ratings,
-                    AVG(score) as avg_rating,
-                    SUM(CASE WHEN score >= 4 THEN 1 ELSE 0 END) as positive_ratings,
-                    SUM(CASE WHEN score <= 2 THEN 1 ELSE 0 END) as negative_ratings
-                ')
-                ->first();
+        $authors = $query
+            ->groupBy('users.id', 'users.fullname', 'users.username', 'users.level')
+            ->selectRaw('
+                users.id,
+                users.fullname,
+                users.username,
+                users.level,
+                COUNT(DISTINCT news.RowID) as posts,
+                COALESCE(SUM(range_views.range_views), 0) as views,
+                COALESCE(SUM(range_ratings.total_ratings), 0) as total_ratings,
+                COALESCE(SUM(range_ratings.score_sum), 0) as score_sum,
+                COALESCE(SUM(range_ratings.positive_ratings), 0) as positive_ratings,
+                COALESCE(SUM(range_ratings.negative_ratings), 0) as negative_ratings
+            ')
+            ->orderByDesc('posts')
+            ->limit($limit)
+            ->get();
 
-            $totalRatings = (int) ($ratingRows->total_ratings ?? 0);
-            $positiveRatings = (int) ($ratingRows->positive_ratings ?? 0);
-            $negativeRatings = (int) ($ratingRows->negative_ratings ?? 0);
+        return $authors->map(function ($user) {
+            $totalRatings = (int) ($user->total_ratings ?? 0);
+            $positiveRatings = (int) ($user->positive_ratings ?? 0);
+            $negativeRatings = (int) ($user->negative_ratings ?? 0);
 
             return [
                 'id' => (int) $user->id,
                 'name' => $user->fullname ?: $user->username ?: 'Không rõ',
                 'username' => $user->username,
-                'posts' => (int) $user->published_count,
-                'views' => (int) News::query()
-                    ->where('Status', 1)
-                    ->where('author_id', $user->id)
-                    ->sum('Views'),
-                'avg_rating' => round((float) ($ratingRows->avg_rating ?? 0), 1),
+                'posts' => (int) $user->posts,
+                'views' => (int) $user->views,
+                'avg_rating' => $totalRatings > 0 ? round((float) $user->score_sum / $totalRatings, 1) : 0,
                 'total_ratings' => $totalRatings,
                 'positive_ratings' => $positiveRatings,
                 'negative_ratings' => $negativeRatings,
@@ -2368,21 +2481,29 @@ class BackController extends Controller
                 'negative_rate' => $totalRatings > 0 ? round($negativeRatings / $totalRatings * 100, 1) : 0,
             ];
         })
-            ->sortByDesc('posts')
-            ->take($limit)
             ->values()
             ->all();
     }
 
-    private function getTopViewedArticles(int $limit = 10): array
+    private function getTopViewedArticles(int $limit = 10, \Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         return News::query()
             ->with(['author', 'category'])
-            ->withCount('comments')
-            ->withCount('ratings')
-            ->withAvg('ratings', 'score')
+            ->withSum(['viewStats as range_views' => function ($query) use ($start, $end) {
+                $query->whereBetween('view_date', [$start->toDateString(), $end->toDateString()]);
+            }], 'total_views')
+            ->withCount(['comments as range_comments_count' => function ($query) use ($start, $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            }])
+            ->withCount(['ratings as range_ratings_count' => function ($query) use ($start, $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            }])
+            ->withAvg(['ratings as range_rating' => function ($query) use ($start, $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            }], 'score')
             ->where('Status', 1)
-            ->orderByDesc('Views')
+            ->having('range_views', '>', 0)
+            ->orderByDesc('range_views')
             ->orderByDesc('RowID')
             ->limit($limit)
             ->get()
@@ -2393,10 +2514,10 @@ class BackController extends Controller
                     'category' => $news->category?->Name ?: 'Chưa phân loại',
                     'category_id' => (int) ($news->RowIDCat ?? 0),
                     'author' => $news->author?->fullname ?: $news->author?->username ?: ($news->Author ?: 'Không rõ'),
-                    'views' => (int) $news->Views,
-                    'comments' => (int) $news->comments_count,
-                    'rating' => round((float) ($news->ratings_avg_score ?? 0), 1),
-                    'total_ratings' => (int) $news->ratings_count,
+                    'views' => (int) ($news->range_views ?? 0),
+                    'comments' => (int) ($news->range_comments_count ?? 0),
+                    'rating' => round((float) ($news->range_rating ?? 0), 1),
+                    'total_ratings' => (int) ($news->range_ratings_count ?? 0),
                     'date' => $news->Date ? \Carbon\Carbon::parse($news->Date)->format('d/m/Y') : optional($news->created_at)->format('d/m/Y'),
                     'status' => (int) $news->Status === 1 ? 'published' : 'draft',
                 ];
@@ -2404,14 +2525,18 @@ class BackController extends Controller
             ->all();
     }
 
-    private function getCategoryRatingStats(): array
+    private function getCategoryRatingStats(\Carbon\Carbon $start, \Carbon\Carbon $end): array
     {
         $rows = DB::table('news_cat')
-            ->leftJoin('news', function ($join) {
+            ->leftJoin('news', function ($join) use ($start, $end) {
                 $join->on('news_cat.RowID', '=', 'news.RowIDCat')
                     ->where('news.Status', 1);
+                $this->applyDashboardNewsDateFilter($join, $start, $end);
             })
-            ->leftJoin('news_ratings', 'news.RowID', '=', 'news_ratings.news_id')
+            ->leftJoin('news_ratings', function ($join) use ($start, $end) {
+                $join->on('news.RowID', '=', 'news_ratings.news_id')
+                    ->whereBetween('news_ratings.created_at', [$start, $end]);
+            })
             ->groupBy('news_cat.RowID', 'news_cat.Name', 'news_cat.color')
             ->orderByDesc(DB::raw('COUNT(DISTINCT news.RowID)'))
             ->limit(6)
@@ -2439,36 +2564,63 @@ class BackController extends Controller
         })->all();
     }
 
-    private function getDashboardStatusDistribution(): array
+    private function getDashboardStatusDistribution(?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
         $hotCount = 0;
 
         if (Schema::hasTable('news_tickers')) {
-            $hotCount = NewsTicker::query()->where('Status', 1)->count();
+            $hotCount = NewsTicker::query()
+                ->where('Status', 1)
+                ->when($start && $end, function ($query) use ($start, $end) {
+                    $query->whereHas('news', function ($newsQuery) use ($start, $end) {
+                        $this->applyDashboardNewsDateFilter($newsQuery, $start, $end);
+                    });
+                })
+                ->count();
         } elseif (Schema::hasColumn('news', 'hot')) {
-            $hotCount = News::query()->where('hot', 1)->count();
+            $hotQuery = News::query()->where('hot', 1);
+            if ($start && $end) {
+                $this->applyDashboardNewsDateFilter($hotQuery, $start, $end);
+            }
+            $hotCount = $hotQuery->count();
+        }
+
+        $publishedQuery = News::query()->where('Status', 1);
+        if ($start && $end) {
+            $this->applyDashboardNewsDateFilter($publishedQuery, $start, $end);
         }
 
         return [
-            'published' => News::query()->where('Status', 1)->count(),
-            'pending' => NewsSchedule::query()->where('status', NewsSchedule::STATUS_PENDING)->count(),
-            'featured' => FeaturedNews::query()->active()->count(),
+            'published' => $publishedQuery->count(),
+            'pending' => NewsSchedule::query()
+                ->where('status', NewsSchedule::STATUS_PENDING)
+                ->when($start && $end, fn ($query) => $query->whereBetween('created_at', [$start, $end]))
+                ->count(),
+            'featured' => FeaturedNews::query()
+                ->active()
+                ->when($start && $end, function ($query) use ($start, $end) {
+                    $query->whereHas('news', function ($newsQuery) use ($start, $end) {
+                        $this->applyDashboardNewsDateFilter($newsQuery, $start, $end);
+                    });
+                })
+                ->count(),
             'hot' => (int) $hotCount,
         ];
     }
 
-    private function getRatingTrend(): array
+    private function getRatingTrend(?\Carbon\Carbon $start = null, ?\Carbon\Carbon $end = null): array
     {
-        $start = now()->copy()->startOfMonth()->subMonths(5);
+        $start = $start ? $start->copy()->startOfMonth() : now()->copy()->startOfMonth()->subMonths(5);
+        $end = $end ? $end->copy()->startOfMonth() : now()->copy()->startOfMonth();
         $rows = NewsRating::query()
-            ->where('created_at', '>=', $start)
+            ->whereBetween('created_at', [$start->copy()->startOfMonth(), $end->copy()->endOfMonth()])
             ->get(['score', 'created_at'])
             ->groupBy(fn (NewsRating $rating) => optional($rating->created_at)->format('Y-m'));
 
         $labels = [];
         $data = [];
 
-        for ($date = $start->copy(); $date->lte(now()->copy()->startOfMonth()); $date->addMonth()) {
+        for ($date = $start->copy(); $date->lte($end); $date->addMonth()) {
             $key = $date->format('Y-m');
             $labels[] = 'T' . $date->format('n');
             $monthRatings = $rows->get($key, collect());
@@ -2481,15 +2633,27 @@ class BackController extends Controller
         ];
     }
 
-    private function getDashboardChartSeries(): array
+    private function getDashboardChartSeries(?\Carbon\Carbon $selectedStart = null, ?\Carbon\Carbon $selectedEnd = null): array
     {
-        return [
+        if ($selectedStart && $selectedEnd) {
+            return [
+                'selected' => $this->buildDailyDashboardSeries(
+                    $selectedStart->copy()->startOfDay(),
+                    $selectedEnd->copy()->startOfDay(),
+                    'short'
+                ),
+            ];
+        }
+
+        $series = [
             'today' => $this->buildDailyDashboardSeries(now()->copy()->startOfDay(), now()->copy()->startOfDay(), 'Hôm nay'),
             'week' => $this->buildDailyDashboardSeries(now()->copy()->subDays(6)->startOfDay(), now()->copy()->startOfDay(), 'day'),
             'month' => $this->buildDailyDashboardSeries(now()->copy()->subDays(29)->startOfDay(), now()->copy()->startOfDay(), 'short'),
             'quarter' => $this->buildMonthlyDashboardSeries(now()->copy()->subMonths(2)->startOfMonth(), now()->copy()->startOfMonth()),
             'year' => $this->buildMonthlyDashboardSeries(now()->copy()->subMonths(11)->startOfMonth(), now()->copy()->startOfMonth()),
         ];
+
+        return $series;
     }
 
     private function getDashboardDailySeries(int $days = 365): array

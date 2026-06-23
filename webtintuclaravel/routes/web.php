@@ -124,6 +124,7 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
     Route::get('/api/stats', [BackController::class, 'api_stats']);
     Route::get('/api/notifications', [BackController::class, 'api_notifications']);
     Route::post('/api/mark-notif-read', [BackController::class, 'api_mark_notif_read']);
+    Route::post('/api/theme', [BackController::class, 'api_theme']);
     Route::post('/api/bulk-action', [BackController::class, 'api_bulk_action']);
 
     // Redirect old URLs → new URLs (so bookmarks don't break)
