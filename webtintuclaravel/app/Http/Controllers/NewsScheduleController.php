@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\NewsSchedule;
 use App\Models\News;
 use App\Models\Notification;
@@ -142,14 +143,61 @@ class NewsScheduleController extends Controller
 
     public function drafts(Request $request)
     {
-        $query = NewsSchedule::with(['news', 'creator'])
-            ->whereHas('news')
-            ->where('created_by', Auth::id())
-            ->whereIn('status', [NewsSchedule::STATUS_DRAFT, NewsSchedule::STATUS_REJECTED])
-            ->orderBy('updated_at', 'DESC');
+        $user = Auth::user();
+        $canReviewAll = $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+
+        $scheduleLatest = DB::table('news_schedules')
+            ->select('news_id', DB::raw('MAX(id) as last_id'))
+            ->groupBy('news_id');
+
+        $query = DB::table('news as a')
+            ->leftJoin('news_cat as b', 'a.RowIDCat', '=', 'b.RowID')
+            ->leftJoin('users as c', 'a.author_id', '=', 'c.id')
+            ->leftJoinSub($scheduleLatest, 'ls', function ($join) {
+                $join->on('a.RowID', '=', 'ls.news_id');
+            })
+            ->leftJoin('news_schedules as d', function ($join) {
+                $join->on('d.id', '=', 'ls.last_id');
+            })
+            ->selectRaw('
+                a.RowID as news_id,
+                a.Name,
+                a.Alias,
+                a.author_id,
+                a.updated_at as news_updated_at,
+                a.created_at as news_created_at,
+                b.Name as CategoryName,
+                COALESCE(c.fullname, c.username) as AuthorName,
+                d.id as schedule_id,
+                d.status,
+                d.created_by,
+                d.reject_reason,
+                d.updated_at as schedule_updated_at
+            ')
+            ->where(function ($q) {
+                $q->whereIn('d.status', [NewsSchedule::STATUS_DRAFT, NewsSchedule::STATUS_REJECTED])
+                    ->orWhere(function ($legacy) {
+                        $legacy->whereNull('d.id')
+                            ->where('a.Status', 0);
+                    });
+            });
+
+        if (!$canReviewAll) {
+            $query->where(function ($q) use ($user) {
+                $q->where('d.created_by', $user->id)
+                    ->orWhere(function ($legacy) use ($user) {
+                        $legacy->whereNull('d.id')
+                            ->where('a.author_id', $user->id);
+                    });
+            });
+        }
+
+        $query->orderByRaw('COALESCE(d.updated_at, a.updated_at, a.created_at) DESC')
+            ->orderByDesc('a.RowID');
 
         $drafts = $query->paginate(20);
+        $isGlobalDrafts = $canReviewAll;
 
-        return view('back.news.drafts', compact('drafts'));
+        return view('back.news.drafts', compact('drafts', 'isGlobalDrafts'));
     }
 }
