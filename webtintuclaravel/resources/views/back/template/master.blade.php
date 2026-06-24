@@ -64,18 +64,48 @@
 
     $searchKeyword = trim((string) request('keyword', ''));
 
-    $adminTheme = session('admin_theme', 'dark');
+    $cookieTheme = request()->cookie('vu_admin_theme');
+    $adminTheme = in_array($cookieTheme, ['dark', 'light'], true)
+        ? $cookieTheme
+        : session('admin_theme', 'dark');
 @endphp
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-admin-theme="{{ $adminTheme }}">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
     <title>{{ $title }}</title>
     <link rel="icon" href="{{ $brandFaviconUrl }}">
     <link rel="shortcut icon" href="{{ $brandFaviconUrl }}">
+
+    <script>
+        (function () {
+            var theme = @json($adminTheme);
+            try {
+                var storedTheme = localStorage.getItem('vu-admin-theme');
+                if (storedTheme === 'dark' || storedTheme === 'light') {
+                    theme = storedTheme;
+                }
+            } catch (e) {}
+
+            document.documentElement.setAttribute('data-admin-theme', theme);
+            document.documentElement.style.colorScheme = theme;
+            window.__VU_ADMIN_THEME__ = theme;
+        })();
+    </script>
+    <style>
+        html,
+        html[data-admin-theme="dark"] {
+            background: #0f0f13;
+        }
+
+        html[data-admin-theme="light"] {
+            background: #f6f7fb;
+        }
+    </style>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -91,6 +121,9 @@
     @stack('styles')
 </head>
 <body class="vu-admin-body{{ request()->is('admin/home') ? ' is-dashboard' : '' }}" data-theme="{{ $adminTheme ?? 'dark' }}" data-csrf="{{ csrf_token() }}" data-theme-url="{{ url('admin/api/theme') }}">
+<script>
+    document.body.setAttribute('data-theme', window.__VU_ADMIN_THEME__ || @json($adminTheme));
+</script>
 <div class="vu-overlay" data-sidebar-close></div>
 
 <div class="vu-admin-shell">
@@ -408,9 +441,13 @@
 
             function applyTheme(theme) {
                 body.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-admin-theme', theme);
+                document.documentElement.style.colorScheme = theme;
                 try {
                     localStorage.setItem('vu-admin-theme', theme);
                 } catch (e) {}
+                document.cookie = 'vu_admin_theme=' + encodeURIComponent(theme)
+                    + '; path=/; max-age=31536000; SameSite=Lax';
             }
 
             function getStoredTheme() {
@@ -433,6 +470,7 @@
                 if (themeUrl && csrfToken) {
                     fetch(themeUrl, {
                         method: 'POST',
+                        keepalive: true,
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,

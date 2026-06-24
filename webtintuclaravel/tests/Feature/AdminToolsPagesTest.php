@@ -134,6 +134,30 @@ class AdminToolsPagesTest extends TestCase
             ->assertSee('Gửi phản hồi cho khách hàng');
     }
 
+    public function test_admin_light_theme_is_applied_before_the_first_paint(): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this->actingAs($user)
+            ->withCookie('vu_admin_theme', 'light')
+            ->get('/admin/home')
+            ->assertOk()
+            ->assertSee('<html lang="vi" data-admin-theme="light">', false)
+            ->assertSee('window.__VU_ADMIN_THEME__', false)
+            ->assertSee('document.body.setAttribute(\'data-theme\'', false);
+
+        $html = $response->getContent();
+        $bootstrapScriptPosition = strpos($html, 'window.__VU_ADMIN_THEME__');
+        $adminStylesheetPosition = strpos($html, 'css/admin-dashboard.css');
+        $shellPosition = strpos($html, '<div class="vu-admin-shell">');
+
+        $this->assertNotFalse($bootstrapScriptPosition);
+        $this->assertNotFalse($adminStylesheetPosition);
+        $this->assertNotFalse($shellPosition);
+        $this->assertLessThan($adminStylesheetPosition, $bootstrapScriptPosition);
+        $this->assertLessThan($shellPosition, $bootstrapScriptPosition);
+    }
+
     private function createAdminUser(): User
     {
         $attributes = [
