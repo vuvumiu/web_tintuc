@@ -303,7 +303,7 @@
                 <select name="level" class="vu-select">
                     <option value="">-- Tất cả --</option>
                     <option value="1" {{ ($level ?? '') === '1' ? 'selected' : '' }}>Quản trị viên</option>
-                    <option value="2" {{ ($level ?? '') === '2' ? 'selected' : '' }}>Nhân viên</option>
+                    <option value="2" {{ ($level ?? '') === '2' ? 'selected' : '' }}>Seo Content</option>
                 </select>
             </div>
             <div class="vu-filter-group">
@@ -332,8 +332,6 @@
                     <th>Tài khoản</th>
                     <th>Họ và tên</th>
                     <th style="width: 150px;">Cấp bậc</th>
-                    <th style="width: 190px;">Vai trò</th>
-                    <th style="width: 150px;">Tác giả</th>
                     <th style="width: 100px; text-align: center;">Bài đã đăng</th>
                     <th>Email</th>
                     <th style="width: 120px;">Trạng thái</th>
@@ -354,27 +352,7 @@
                         @if($item->level == 1)
                             <span class="vu-badge-sm danger"><i class="fas fa-crown mr-1"></i>Quản trị viên</span>
                         @else
-                            <span class="vu-badge-sm warning"><i class="fas fa-user mr-1"></i>Nhân viên</span>
-                        @endif
-                    </td>
-                    <td>
-                        @forelse($item->roles as $role)
-                            <span class="vu-badge-sm gold" style="margin:2px;">{{ $role->display_name }}</span>
-                        @empty
-                            <span class="vu-badge-sm danger">Chưa phân quyền</span>
-                        @endforelse
-                    </td>
-                    <td>
-                        @if((int) ($item->is_author ?? 0) === 1)
-                            <span class="vu-badge-sm success">Đang bật</span>
-                        @else
-                            <span class="vu-badge-sm neutral">Đang tắt</span>
-                        @endif
-
-                        @if(($item->authored_news_count ?? 0) > 0)
-                            <div style="margin-top: 4px;">
-                                <span class="vu-badge-sm info">{{ $item->authored_news_count }} bài</span>
-                            </div>
+                            <span class="vu-badge-sm warning"><i class="fas fa-user mr-1"></i>Seo Content</span>
                         @endif
                     </td>
                     <td style="text-align: center;">
@@ -417,7 +395,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="10">
+                    <td colspan="8">
                         <div class="empty-state-dark">
                             <div class="empty-icon"><i class="fas fa-users"></i></div>
                             <h3>Chưa có tài khoản nào</h3>

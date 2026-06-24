@@ -124,7 +124,6 @@ class NewsScheduleController extends Controller
         $canManageAll = $user && (
             $user->isAdmin()
             || $user->hasPermission('news.approve')
-            || $user->hasPermission('news.edit_all')
         );
 
         if (!$canManageAll && (int) $news->author_id !== (int) Auth::id()) {
@@ -162,7 +161,6 @@ class NewsScheduleController extends Controller
         $canReviewAll = $user && (
             $user->isAdmin()
             || $user->hasPermission('news.approve')
-            || $user->hasPermission('news.edit_all')
         );
 
         $scheduleLatest = DB::table('news_schedules')

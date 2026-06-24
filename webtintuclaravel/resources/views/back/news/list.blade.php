@@ -544,10 +544,12 @@
                 <strong id="bulk-count">0</strong> bài viết được chọn
                 <select name="action" id="bulk-action-select" class="vu-select">
                     <option value="">-- Chọn thao tác --</option>
-                    <option value="show">Hiển thị</option>
-                    <option value="hide">Ẩn</option>
                     <option value="submit_review">Gửi duyệt</option>
-                    <option value="delete">Xóa</option>
+                    @if(Auth::user()->isAdmin())
+                        <option value="show">Hiển thị</option>
+                        <option value="hide">Ẩn</option>
+                        <option value="delete">Xóa</option>
+                    @endif
                 </select>
                 <button type="button" class="btn-bulk execute" onclick="submitBulk()" id="bulk-submit-btn" disabled>
                     <i class="fas fa-play"></i> Thực hiện
@@ -640,13 +642,15 @@
                             <a href="{{ url('admin/news/duplicate/' . $v->RowID) }}" class="action-btn-sm" title="Sao chép">
                                 <i class="fas fa-copy"></i>
                             </a>
-                            <form action="{{ url('admin/news/delete/' . $v->RowID) }}" method="POST" class="d-inline" onsubmit="return confirm('Xóa bài viết này?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="action-btn-sm danger" title="Xóa">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </form>
+                            @if(Auth::user()->hasPermission('news.delete'))
+                                <form action="{{ url('admin/news/delete/' . $v->RowID) }}" method="POST" class="d-inline" onsubmit="return confirm('Xóa bài viết này?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="action-btn-sm danger" title="Xóa">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     </td>
                 </tr>

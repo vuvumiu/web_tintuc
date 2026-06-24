@@ -147,8 +147,7 @@ class AppServiceProvider extends ServiceProvider
             $displayName = $user->fullname ?: $user->username;
             $roleLabel = $user->isAdmin()
                 ? 'Quản trị viên'
-                : ($user->roles()->orderBy('display_name')->value('display_name')
-                    ?: ($user->isAuthor() ? 'Tác giả' : 'Nhân viên'));
+                : 'Seo Content';
 
             $systemSettings = System::query()
                 ->whereIn('Code', ['name', 'logo_text', 'logo', 'logo_type', 'favicon'])

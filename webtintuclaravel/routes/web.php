@@ -173,8 +173,8 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
         Route::post('toggle/{id}', [AccountController::class, 'account_toggle']);
     });
 
-    Route::get('/system', [BackController::class, 'system'])->middleware('admin');
-    Route::post('/system', [BackController::class, 'system_post'])->middleware('admin');
+    Route::get('/system', [BackController::class, 'system'])->middleware('permission:system.settings');
+    Route::post('/system', [BackController::class, 'system_post'])->middleware('permission:system.settings');
 
     // ====================== QUẢN LÝ TAGS ======================
     Route::group(['prefix' => 'tag'], function () {
@@ -328,8 +328,8 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
     // AI Tools (admin only)
     Route::group(['prefix' => 'ai'], function () {
         Route::get('dashboard', [AdminAIController::class, 'dashboard'])->middleware('permission:ai.use');
-        Route::get('settings', [AdminAIController::class, 'settings'])->middleware('admin');
-        Route::post('settings', [AdminAIController::class, 'settings'])->middleware('admin');
+        Route::get('settings', [AdminAIController::class, 'settings'])->middleware('permission:system.settings');
+        Route::post('settings', [AdminAIController::class, 'settings'])->middleware('permission:system.settings');
         Route::post('generate-meta', [AdminAIController::class, 'generateMeta'])->middleware('permission:ai.use');
         Route::post('suggest-tags', [AdminAIController::class, 'suggestTags'])->middleware('permission:ai.use');
         Route::post('moderate-comment', [AdminAIController::class, 'moderateComment'])->middleware('permission:comment.moderate');

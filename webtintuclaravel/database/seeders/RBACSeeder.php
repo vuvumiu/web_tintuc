@@ -82,94 +82,10 @@ class RBACSeeder extends Seeder
             $permissionIds[$permission['name']] = $permissionId;
         }
 
-        $roles = [
-            'super_admin' => ['name' => 'super_admin', 'display_name' => 'Quan tri cao cap', 'description' => 'Toan quyen he thong'],
-            'editor' => ['name' => 'editor', 'display_name' => 'Bien tap vien', 'description' => 'Quan ly bai viet, tags, duyet bai'],
-            'seo' => ['name' => 'seo', 'display_name' => 'Chuyen vien SEO', 'description' => 'Toi uu SEO bai viet, trang va tags'],
-            'writer' => ['name' => 'writer', 'display_name' => 'Phong vien', 'description' => 'Tao va chinh sua bai viet'],
-            'moderator' => ['name' => 'moderator', 'display_name' => 'Kiem duyet vien', 'description' => 'Quan ly binh luan, lien he'],
-            'viewer' => ['name' => 'viewer', 'display_name' => 'Nguoi xem', 'description' => 'Chi xem'],
-        ];
+        DB::table('user_roles')->delete();
+        DB::table('role_permissions')->delete();
+        DB::table('roles')->delete();
 
-        $roleIds = [];
-        foreach ($roles as $name => $data) {
-            $roleId = DB::table('roles')->where('name', $data['name'])->value('id');
-
-            if (!$roleId) {
-                $roleId = DB::table('roles')->insertGetId($data + [
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            $roleIds[$name] = $roleId;
-        }
-
-        $rolePermissions = [
-            'super_admin' => array_keys($permissionIds),
-            'editor' => [
-                'news.list', 'news.create', 'news.edit', 'news.edit_all', 'news.delete', 'news.approve', 'news.preview',
-                'category.list', 'category.create', 'category.edit',
-                'tag.list', 'tag.create', 'tag.edit', 'tag.delete',
-                'author.list',
-                'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
-                'featured.manage', 'ticker.manage', 'social.manage', 'page.manage', 'ai.use',
-            ],
-            'seo' => [
-                'news.list', 'news.create', 'news.edit', 'news.edit_all', 'news.preview',
-                'category.list',
-                'tag.list', 'tag.create', 'tag.edit',
-                'featured.manage', 'social.manage', 'page.manage', 'ai.use',
-            ],
-            'writer' => [
-                'news.list', 'news.create', 'news.edit', 'news.preview',
-                'category.list',
-                'tag.list', 'ai.use',
-            ],
-            'moderator' => [
-                'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
-                'contact.list', 'contact.reply',
-                'newsletter.list',
-                'member.list', 'member.edit',
-                'author.list',
-            ],
-            'viewer' => [
-                'news.list', 'category.list', 'contact.list', 'comment.list', 'author.list',
-            ],
-        ];
-
-        foreach ($rolePermissions as $roleName => $permissionsForRole) {
-            $roleId = $roleIds[$roleName] ?? null;
-
-            if (!$roleId) {
-                continue;
-            }
-
-            DB::table('role_permissions')->where('role_id', $roleId)->delete();
-
-            foreach ($permissionsForRole as $permissionName) {
-                $permissionId = $permissionIds[$permissionName] ?? null;
-
-                if (!$permissionId) {
-                    continue;
-                }
-
-                $exists = DB::table('role_permissions')
-                    ->where('role_id', $roleId)
-                    ->where('permission_id', $permissionId)
-                    ->exists();
-
-                if (!$exists) {
-                    DB::table('role_permissions')->insert([
-                        'role_id' => $roleId,
-                        'permission_id' => $permissionId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-        }
-
-        $this->command->info('RBAC seeded: ' . count($permissionIds) . ' permissions, ' . count($roleIds) . ' roles.');
+        $this->command->info('Permissions seeded for Administrator and Seo Content levels.');
     }
 }

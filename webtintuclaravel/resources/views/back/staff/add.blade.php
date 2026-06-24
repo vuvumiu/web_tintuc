@@ -19,7 +19,7 @@
                 @csrf
 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <div class="form-group">
                             <label for="level">Cap bac <span class="text-red">*</span></label>
                             <select class="form-control" name="level">
@@ -28,11 +28,11 @@
                                 @endforeach
                             </select>
                             <small class="text-muted">
-                                Quan tri vien co toan quyen. Nhan vien su dung cac module noi dung duoc cap phep.
+                                Administrator co toan quyen. Seo Content chi quan ly bai viet cua chinh minh va gui duyet.
                             </small>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="form-group">
                             <label for="is_active">Trang thai</label>
                             <select class="form-control" name="is_active">
@@ -41,46 +41,10 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="is_author">La tac gia</label>
-                            @if(Auth::user()->isAdmin())
-                                <select class="form-control" name="is_author">
-                                    <option value="0">Khong</option>
-                                    <option value="1">Co</option>
-                                </select>
-                            @else
-                                <input type="hidden" name="is_author" value="0">
-                                <input type="text" class="form-control" value="Chi admin duoc thay doi" disabled>
-                            @endif
-                        </div>
-                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Vai trò và phạm vi quyền <span class="text-red">*</span></label>
-                    @if(Auth::user()->isAdmin())
-                        <div class="row">
-                            @foreach($roles as $role)
-                                @continue($role->name === 'super_admin')
-                                <div class="col-md-4 mb-2">
-                                    <label class="d-flex align-items-start p-3"
-                                           style="gap:10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-soft);cursor:pointer;">
-                                        <input type="checkbox" name="role_ids[]" value="{{ $role->id }}"
-                                               style="margin-top:3px;"
-                                               {{ in_array($role->id, array_map('intval', old('role_ids', [])), true) ? 'checked' : '' }}>
-                                        <span>
-                                            <strong style="display:block;color:var(--text-primary);">{{ $role->display_name }}</strong>
-                                            <small class="text-muted">{{ $role->description ?: 'Quyền theo vai trò hệ thống.' }}</small>
-                                        </span>
-                                    </label>
-                                </div>
-                            @endforeach
-                        </div>
-                        <small class="text-muted">Tác giả chưa chọn vai trò sẽ tự nhận quyền Phóng viên. Không cấp Quản trị cao cấp cho tài khoản nhân viên.</small>
-                    @else
-                        <div class="alert alert-info mb-0">Hệ thống tự gán vai trò Phóng viên cho tác giả và Người xem cho nhân viên khác.</div>
-                    @endif
+                <div class="alert alert-info">
+                    Quyen truy cap duoc gan tu dong theo cap bac, khong can chon them vai tro.
                 </div>
 
                 <div class="form-group">

@@ -15,6 +15,13 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    private const SEO_CONTENT_PERMISSIONS = [
+        'news.list',
+        'news.create',
+        'news.edit',
+        'news.preview',
+    ];
+
     protected $fillable = [
         'username',
         'password',
@@ -204,7 +211,7 @@ class User extends Authenticatable
     {
         return match ($this->level) {
             1 => 'Quản trị viên',
-            2 => 'Nhân viên',
+            2 => 'Seo Content',
             default => 'Người dùng',
         };
     }
@@ -271,13 +278,8 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($permissionName === 'author.list' && $this->isStaff()) {
-            return true;
-        }
-
-        return $this->roles()->whereHas('permissions', function ($q) use ($permissionName) {
-            $q->where('name', $permissionName);
-        })->exists();
+        return $this->isStaff()
+            && in_array($permissionName, self::SEO_CONTENT_PERMISSIONS, true);
     }
 
     public function hasAnyPermission(array $permissions): bool
