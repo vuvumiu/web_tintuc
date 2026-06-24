@@ -121,15 +121,17 @@
 
                         <div class="form-group">
                             <label>Meta Title</label>
-                            <textarea name="MetaTitle" rows="2" class="form-control seo-source" data-target="seo-preview-title" placeholder="SEO Title..."></textarea>
+                            <textarea name="MetaTitle" rows="2" maxlength="70" class="form-control seo-source" data-target="seo-preview-title" placeholder="SEO Title..."></textarea>
+                            <small class="text-muted">Khuyến nghị 50-60 ký tự, tối đa 70.</small>
                         </div>
                         <div class="form-group">
                             <label>Meta Description</label>
-                            <textarea name="MetaDescription" rows="5" class="form-control seo-source" data-target="seo-preview-desc" placeholder="SEO Description..."></textarea>
+                            <textarea name="MetaDescription" rows="5" maxlength="180" class="form-control seo-source" data-target="seo-preview-desc" placeholder="SEO Description..."></textarea>
+                            <small class="text-muted">Khuyến nghị 140-160 ký tự, tối đa 180.</small>
                         </div>
                         <div class="form-group">
                             <label>Meta Keywords</label>
-                            <textarea name="MetaKeyword" rows="2" class="form-control" placeholder="Keyword1, Keyword2..."></textarea>
+                            <textarea name="MetaKeyword" rows="2" maxlength="500" class="form-control" placeholder="Keyword1, Keyword2..."></textarea>
                         </div>
 
                         {{-- Google Snippet Preview --}}
@@ -188,9 +190,17 @@
             </div>
 
             <div class="card-footer">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save mr-1"></i> Lưu bài viết
+                <button type="submit" name="submit_action" value="save_draft" class="btn btn-secondary">
+                    <i class="fas fa-save mr-1"></i> Lưu nháp
                 </button>
+                <button type="submit" name="submit_action" value="submit_review" class="btn btn-warning ml-2">
+                    <i class="fas fa-paper-plane mr-1"></i> Gửi duyệt
+                </button>
+                @if($canPublishDirectly ?? false)
+                    <button type="submit" name="submit_action" value="publish_now" class="btn btn-success ml-2">
+                        <i class="fas fa-globe mr-1"></i> Xuất bản
+                    </button>
+                @endif
                 <a href="{{ url('admin/news/list') }}" class="btn btn-secondary ml-2">
                     <i class="fas fa-times mr-1"></i> Hủy
                 </a>

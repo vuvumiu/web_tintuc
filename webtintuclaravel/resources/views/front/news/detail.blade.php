@@ -1,17 +1,78 @@
 @extends('front.template.master')
-@section('title', $newsDetail->MetaTitle ?? $newsDetail->Name)
-@section('description', $newsDetail->MetaDescription ?? '')
-@section('keywords', $newsDetail->MetaKeyword ?? '')
-@section('url', url('/'.$newsDetail->Alias.'.html'))
 @php
     $newsDetailData = $newsDetail;
+    $seoTitle = trim((string) ($newsDetail->MetaTitle ?? '')) ?: trim((string) $newsDetail->Name);
+    $seoDescription = trim((string) ($newsDetail->MetaDescription ?? ''))
+        ?: trim((string) ($newsDetail->SmallDescription ?? ''))
+        ?: \Illuminate\Support\Str::limit(trim(strip_tags((string) ($newsDetail->Description ?? ''))), 180, '');
+    $canonicalUrl = url('/' . $newsDetail->Alias . '.html');
+    $seoImage = $newsDetail->Images
+        ? url('images/news/' . ltrim($newsDetail->Images, '/'))
+        : asset('favicon.ico');
+    $toIsoDate = function ($value) {
+        if (!$value || str_starts_with((string) $value, '0000-00-00')) {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::parse($value)->toIso8601String();
+        } catch (\Throwable $exception) {
+            return null;
+        }
+    };
+    $publishedAt = $toIsoDate($newsDetail->Date ?? $newsDetail->created_at ?? null);
+    $modifiedAt = $toIsoDate($newsDetail->updated_at ?? null) ?: $publishedAt;
+    $authorName = trim((string) ($newsDetail->AuthorName ?? $newsDetail->AuthorUsername ?? ''))
+        ?: ($siteName ?? 'VNXpress');
+    $articleSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'NewsArticle',
+        'headline' => $seoTitle,
+        'description' => $seoDescription,
+        'mainEntityOfPage' => [
+            '@type' => 'WebPage',
+            '@id' => $canonicalUrl,
+        ],
+        'image' => [$seoImage],
+        'datePublished' => $publishedAt,
+        'dateModified' => $modifiedAt,
+        'author' => [
+            '@type' => 'Person',
+            'name' => $authorName,
+        ],
+        'publisher' => [
+            '@type' => 'Organization',
+            'name' => $siteName ?? 'VNXpress',
+            'logo' => [
+                '@type' => 'ImageObject',
+                'url' => $faviconUrl ?? asset('favicon.ico'),
+            ],
+        ],
+        'articleSection' => $newsDetail->NewsCatName ?? null,
+        'keywords' => $newsDetail->MetaKeyword ?? null,
+    ];
+    $articleSchema = array_filter($articleSchema, fn ($value) => $value !== null && $value !== '');
 @endphp
-<script>window.AI_NEWS_ID = {{ $newsDetail->RowID }};</script>
+@section('title', $seoTitle)
+@section('description', $seoDescription)
+@section('keywords', $newsDetail->MetaKeyword ?? '')
+@section('url', $canonicalUrl)
+@section('images', $seoImage)
+@section('og_type', 'article')
+@section('robots', 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1')
+@push('head')
+    @if($publishedAt)<meta property="article:published_time" content="{{ $publishedAt }}" />@endif
+    @if($modifiedAt)<meta property="article:modified_time" content="{{ $modifiedAt }}" />@endif
+    <meta property="article:section" content="{{ $newsDetail->NewsCatName ?? '' }}" />
+    <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+@endpush
+<script>
+window.AI_NEWS_ID = {{ $newsDetail->RowID }};
+window.VNX_DETAIL_COMMENT_HANDLERS = true;
+</script>
 
 @if($newsDetail->NewsCatAlias)
     @section($newsDetail->NewsCatAlias, 'active')
 @endif
-@section('images', url('images/news/'.$newsDetail->Images))
 @section('content')
 
 <style>
@@ -2078,6 +2139,10 @@ html body .related-posts-section.related-posts-section a {
                 <form id="commentForm" data-news-id="{{ $newsDetail->RowID }}">
                     @csrf
                     <input type="hidden" name="news_id" value="{{ $newsDetail->RowID }}">
+                    <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
+                        <label for="commentWebsite">Website</label>
+                        <input type="text" id="commentWebsite" name="website" tabindex="-1" autocomplete="off">
+                    </div>
                     <div class="comment-form-wrap">
                         <div class="comment-avatar">
                             {{ strtoupper(substr(Auth::user()->username, 0, 1)) }}
@@ -2450,9 +2515,15 @@ function copyLink(btn) {
             ajax(apiUrls.binhLuan, {
                 _token: csrf,
                 news_id: currentNewsId,
-                content: content
+                content: content,
+                website: document.getElementById('commentWebsite') ? document.getElementById('commentWebsite').value : ''
             }, function (res) {
                 textarea.value = '';
+                if (!res.visible) {
+                    showToast(res.message);
+                    resetBtn();
+                    return;
+                }
                 var newHtml = buildCmtRow(res.comment, false);
                 var noMsg = document.getElementById('noCommentsMsg');
                 if (noMsg) noMsg.style.display = 'none';
@@ -2490,6 +2561,11 @@ function copyLink(btn) {
             textarea.value = '';
             var wrap = document.getElementById('replyForm-' + parentId);
             if (wrap) wrap.classList.remove('active');
+            if (!res.visible) {
+                showToast(res.message);
+                btn.disabled = false;
+                return;
+            }
             var root = document.getElementById('comment-' + parentId);
             var bubble = root ? root.querySelector('.comment-bubble') : null;
             if (bubble) {
@@ -2689,6 +2765,13 @@ function copyLink(btn) {
             _method: 'POST',
             content: content
         }, function (res) {
+            if (!res.visible) {
+                var card = document.getElementById('comment-' + id);
+                if (card) card.remove();
+                showToast(res.message);
+                updateEmptyState();
+                return;
+            }
             var textEl = document.getElementById('cmtText-' + id);
             if (textEl) textEl.textContent = res.content;
             var area = document.getElementById('editArea-' + id);

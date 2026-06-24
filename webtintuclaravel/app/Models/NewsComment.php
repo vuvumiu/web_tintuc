@@ -11,6 +11,11 @@ class NewsComment extends Model
 {
     use HasFactory;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_SPAM = 'spam';
+
     protected $table = 'news_comments';
 
     protected $fillable = [
@@ -19,6 +24,14 @@ class NewsComment extends Model
         'parent_id',
         'content',
         'is_active',
+        'moderation_status',
+        'moderation_reason',
+        'spam_score',
+        'ip_address',
+        'user_agent',
+        'content_hash',
+        'moderated_by',
+        'moderated_at',
         'upvote_count',
         'downvote_count',
         'reply_count',
@@ -28,6 +41,8 @@ class NewsComment extends Model
         'upvote_count' => 0,
         'downvote_count' => 0,
         'reply_count' => 0,
+        'moderation_status' => self::STATUS_APPROVED,
+        'spam_score' => 0,
     ];
 
     protected $casts = [
@@ -37,6 +52,8 @@ class NewsComment extends Model
         'upvote_count' => 'integer',
         'downvote_count' => 'integer',
         'reply_count' => 'integer',
+        'spam_score' => 'integer',
+        'moderated_at' => 'datetime',
     ];
 
     public function news(): BelongsTo
@@ -63,6 +80,7 @@ class NewsComment extends Model
     {
         return $this->hasMany(NewsComment::class, 'parent_id')
             ->where('is_active', true)
+            ->where('moderation_status', self::STATUS_APPROVED)
             ->orderBy('created_at', 'ASC');
     }
 
@@ -78,6 +96,39 @@ class NewsComment extends Model
             $q->whereNull('parent_id')
                 ->orWhere('parent_id', 0);
         });
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('is_active', true)
+            ->where('moderation_status', self::STATUS_APPROVED);
+    }
+
+    public function scopePendingModeration($query)
+    {
+        return $query->where('moderation_status', self::STATUS_PENDING);
+    }
+
+    public function approve(?int $moderatorId = null, ?string $reason = null): void
+    {
+        $this->forceFill([
+            'moderation_status' => self::STATUS_APPROVED,
+            'moderation_reason' => $reason,
+            'is_active' => true,
+            'moderated_by' => $moderatorId,
+            'moderated_at' => now(),
+        ])->save();
+    }
+
+    public function reject(?int $moderatorId = null, ?string $reason = null, bool $spam = false): void
+    {
+        $this->forceFill([
+            'moderation_status' => $spam ? self::STATUS_SPAM : self::STATUS_REJECTED,
+            'moderation_reason' => $reason,
+            'is_active' => false,
+            'moderated_by' => $moderatorId,
+            'moderated_at' => now(),
+        ])->save();
     }
 
     protected static function booted(): void

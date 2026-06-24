@@ -56,6 +56,7 @@ class RBACSeeder extends Seeder
             ['name' => 'comment.list', 'display_name' => 'Xem binh luan', 'group' => 'comment', 'description' => null],
             ['name' => 'comment.delete', 'display_name' => 'Xoa binh luan', 'group' => 'comment', 'description' => null],
             ['name' => 'comment.hide', 'display_name' => 'An hien binh luan', 'group' => 'comment', 'description' => null],
+            ['name' => 'comment.moderate', 'display_name' => 'Kiem duyet binh luan', 'group' => 'comment', 'description' => null],
 
             ['name' => 'slider.manage', 'display_name' => 'Quan ly slider', 'group' => 'slider', 'description' => null],
             ['name' => 'ads.manage', 'display_name' => 'Quan ly quang cao', 'group' => 'ads', 'description' => null],
@@ -107,7 +108,7 @@ class RBACSeeder extends Seeder
                 'tag.list', 'tag.create', 'tag.edit',
                 'author.list',
                 'contact.list', 'contact.reply',
-                'comment.list', 'comment.delete', 'comment.hide',
+                'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
                 'slider.manage', 'ads.manage', 'social.manage', 'page.manage',
             ],
             'writer' => [
@@ -117,7 +118,7 @@ class RBACSeeder extends Seeder
                 'author.list',
             ],
             'moderator' => [
-                'comment.list', 'comment.delete', 'comment.hide',
+                'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
                 'contact.list', 'contact.reply',
                 'newsletter.list',
                 'member.list', 'member.edit',

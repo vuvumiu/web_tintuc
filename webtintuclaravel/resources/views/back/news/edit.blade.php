@@ -168,15 +168,17 @@
 
                         <div class="form-group">
                             <label>Meta Title</label>
-                            <textarea name="MetaTitle" rows="2" class="form-control seo-source" data-target="seo-preview-title">{{ $News->MetaTitle }}</textarea>
+                            <textarea name="MetaTitle" rows="2" maxlength="70" class="form-control seo-source" data-target="seo-preview-title">{{ $News->MetaTitle }}</textarea>
+                            <small class="text-muted">Khuyến nghị 50-60 ký tự, tối đa 70.</small>
                         </div>
                         <div class="form-group">
                             <label>Meta Description</label>
-                            <textarea name="MetaDescription" rows="5" class="form-control seo-source" data-target="seo-preview-desc">{{ $News->MetaDescription }}</textarea>
+                            <textarea name="MetaDescription" rows="5" maxlength="180" class="form-control seo-source" data-target="seo-preview-desc">{{ $News->MetaDescription }}</textarea>
+                            <small class="text-muted">Khuyến nghị 140-160 ký tự, tối đa 180.</small>
                         </div>
                         <div class="form-group">
                             <label>Meta Keywords</label>
-                            <textarea name="MetaKeyword" rows="2" class="form-control">{{ $News->MetaKeyword }}</textarea>
+                            <textarea name="MetaKeyword" rows="2" maxlength="500" class="form-control">{{ $News->MetaKeyword }}</textarea>
                         </div>
 
                         {{-- Google Snippet Preview --}}
@@ -224,13 +226,16 @@
             </div>
 
             <div class="card-footer">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save mr-1"></i> Lưu thay đổi
+                <button type="submit" name="submit_action" value="save_draft" class="btn btn-secondary">
+                    <i class="fas fa-save mr-1"></i> Lưu nháp
                 </button>
-                @if(isset($schedule) && ($schedule->status === 'draft' || $schedule->status === 'rejected'))
-                    <a href="{{ url('admin/news/submit-review/' . $News->RowID) }}" class="btn btn-warning ml-2">
-                        <i class="fas fa-paper-plane mr-1"></i> Gửi duyệt
-                    </a>
+                <button type="submit" name="submit_action" value="submit_review" class="btn btn-warning ml-2">
+                    <i class="fas fa-paper-plane mr-1"></i> Gửi duyệt
+                </button>
+                @if($canPublishDirectly ?? false)
+                    <button type="submit" name="submit_action" value="publish_now" class="btn btn-success ml-2">
+                        <i class="fas fa-globe mr-1"></i> Xuất bản
+                    </button>
                 @endif
             </div>
         </form>

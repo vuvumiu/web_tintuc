@@ -142,8 +142,24 @@ class AIController extends Controller
             }
 
             if ($action === 'REJECT') {
-                $comment->is_active = 0;
-                $comment->save();
+                $comment->reject(
+                    $request->user()?->id,
+                    (string) ($result['reason'] ?? 'AI từ chối bình luận.'),
+                    true
+                );
+            } elseif ($action === 'APPROVE') {
+                $comment->approve(
+                    $request->user()?->id,
+                    (string) ($result['reason'] ?? 'AI đã duyệt bình luận.')
+                );
+            } else {
+                $comment->forceFill([
+                    'moderation_status' => NewsComment::STATUS_PENDING,
+                    'moderation_reason' => (string) ($result['reason'] ?? 'AI yêu cầu xem lại.'),
+                    'is_active' => false,
+                    'moderated_by' => $request->user()?->id,
+                    'moderated_at' => now(),
+                ])->save();
             }
 
             return response()->json([
@@ -211,8 +227,24 @@ class AIController extends Controller
                 }
 
                 if ($action === 'REJECT') {
-                    $comment->is_active = 0;
-                    $comment->save();
+                    $comment->reject(
+                        $request->user()?->id,
+                        (string) ($result['reason'] ?? 'AI từ chối bình luận.'),
+                        true
+                    );
+                } elseif ($action === 'APPROVE') {
+                    $comment->approve(
+                        $request->user()?->id,
+                        (string) ($result['reason'] ?? 'AI đã duyệt bình luận.')
+                    );
+                } else {
+                    $comment->forceFill([
+                        'moderation_status' => NewsComment::STATUS_PENDING,
+                        'moderation_reason' => (string) ($result['reason'] ?? 'AI yêu cầu xem lại.'),
+                        'is_active' => false,
+                        'moderated_by' => $request->user()?->id,
+                        'moderated_at' => now(),
+                    ])->save();
                 }
 
                 $results[] = [

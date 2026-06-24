@@ -27,7 +27,7 @@
     $canSocial = $canAny(['social.manage']);
     $canNewsletter = $canAny(['newsletter.list', 'newsletter.export']);
     $canContact = $canAny(['contact.list', 'contact.reply']);
-    $canComment = $canAny(['comment.list', 'comment.delete', 'comment.hide']);
+    $canComment = $canAny(['comment.list', 'comment.delete', 'comment.hide', 'comment.moderate']);
     $canAi = $menuIsAdmin;
     $canTicker = $menuIsAdmin || $menuUser?->isStaff();
 

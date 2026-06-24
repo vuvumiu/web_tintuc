@@ -11,7 +11,7 @@
     @endphp
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="robots" content="noodp,index,follow" />
+    <meta name="robots" content="@yield('robots', 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1')" />
     <meta name="revisit-after" content="1 days" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@yield('title', $brandName)</title>
@@ -21,15 +21,20 @@
     <link rel="shortcut icon" type="image/x-icon" href="{{ $faviconHref }}"/>
     <link rel="canonical" href="@yield('url', url('/'))" />
     <meta property="og:locale" itemprop="inlanguage" content="vi_VN" />
-    <meta property="og:url" content="@yield('url')" />
-    <meta property="og:type" content="article" />
+    <meta property="og:url" content="@yield('url', url('/'))" />
+    <meta property="og:type" content="@yield('og_type', 'website')" />
     <meta property="og:title" content="@yield('title')" />
     <meta property="og:description" content="@yield('description')" />
     <meta property="og:image" content="@yield('images')" />
     <meta property="og:site_name" content="{{ $brandName }}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@yield('title', $brandName)" />
+    <meta name="twitter:description" content="@yield('description', '')" />
+    <meta name="twitter:image" content="@yield('images', '')" />
     <meta name="copyright" content="{{ $brandName }}" />
     <meta name="author" content="{{ $brandName }}" />
     <meta name="geo.placename" content="Ho Chi Minh, Viet Nam" />
+    @stack('head')
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />

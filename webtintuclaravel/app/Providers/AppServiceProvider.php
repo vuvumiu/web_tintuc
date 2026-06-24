@@ -202,7 +202,9 @@ class AppServiceProvider extends ServiceProvider
                     'news_total' => News::count(),
                     'newsletter_unreviewed' => Newsletter::query()->unreviewed()->count(),
                     'contacts_new' => Contact::query()->unread()->count(),
-                    'comments_pending' => NewsComment::query()->where('is_active', false)->count(),
+                    'comments_pending' => Schema::hasColumn('news_comments', 'moderation_status')
+                        ? NewsComment::query()->where('moderation_status', NewsComment::STATUS_PENDING)->count()
+                        : NewsComment::query()->where('is_active', false)->count(),
                     'notifications_unread' => Notification::unreadCount($user->id),
                 ],
                 'user' => [

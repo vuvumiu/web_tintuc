@@ -82,9 +82,9 @@ Route::get('tin-moi-nhat', [FrontController::class, 'latestNews']);
 Route::get('tin-noi-bat', [FrontController::class, 'topViewedNews']);
 
 // Bình luận & Đánh giá sao & Vote (yêu cầu đăng nhập)
-Route::post('binh-luan', [CommentController::class, 'store'])->middleware('auth')->name('binhluan');
-Route::post('binh-luan/phan-hoi', [CommentController::class, 'reply'])->middleware('auth')->name('binhluan.phanhoi');
-Route::post('binh-luan/sua/{id}', [CommentController::class, 'update'])->middleware('auth')->name('binhluan.sua');
+Route::post('binh-luan', [CommentController::class, 'store'])->middleware(['auth', 'throttle:comments'])->name('binhluan');
+Route::post('binh-luan/phan-hoi', [CommentController::class, 'reply'])->middleware(['auth', 'throttle:comments'])->name('binhluan.phanhoi');
+Route::post('binh-luan/sua/{id}', [CommentController::class, 'update'])->middleware(['auth', 'throttle:comments'])->name('binhluan.sua');
 Route::post('binh-luan/xoa/{id}', [CommentController::class, 'destroy'])->middleware('auth')->name('binhluan.xoa');
 Route::delete('binh-luan/xoa/{id}', [CommentController::class, 'destroy'])->middleware('auth')->name('binhluan.xoa');
 Route::post('binh-luan/vote', [CommentController::class, 'vote'])->middleware('auth')->name('binhluan.vote');
@@ -306,7 +306,8 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
         Route::get('list', [CommentAdminController::class, 'index'])->middleware('permission:comment.list');
         Route::delete('delete/{id}', [CommentAdminController::class, 'destroy'])->middleware('permission:comment.delete');
         Route::post('toggle/{id}', [CommentAdminController::class, 'toggle'])->middleware('permission:comment.hide');
-        Route::post('bulk-action', [CommentAdminController::class, 'bulkAction'])->middleware('permission:comment.delete|comment.hide');
+        Route::post('moderate/{id}', [CommentAdminController::class, 'moderate'])->middleware('permission:comment.moderate');
+        Route::post('bulk-action', [CommentAdminController::class, 'bulkAction'])->middleware('permission:comment.delete|comment.hide|comment.moderate');
     });
 
     // Quản lý đánh giá sao
@@ -331,7 +332,7 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
         Route::post('settings', [AdminAIController::class, 'settings'])->middleware('admin');
         Route::post('generate-meta', [AdminAIController::class, 'generateMeta']);
         Route::post('suggest-tags', [AdminAIController::class, 'suggestTags']);
-        Route::post('moderate-comment', [AdminAIController::class, 'moderateComment']);
-        Route::post('moderate-comment-bulk', [AdminAIController::class, 'moderateCommentBulk']);
+        Route::post('moderate-comment', [AdminAIController::class, 'moderateComment'])->middleware('permission:comment.moderate');
+        Route::post('moderate-comment-bulk', [AdminAIController::class, 'moderateCommentBulk'])->middleware('permission:comment.moderate');
     });
 });

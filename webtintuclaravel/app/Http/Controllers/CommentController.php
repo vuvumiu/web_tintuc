@@ -6,7 +6,7 @@ use App\Models\CommentVote;
 use App\Models\News;
 use App\Models\NewsComment;
 use App\Models\NewsRating;
-use App\Services\GeminiAIService;
+use App\Services\CommentModerationService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,13 +15,11 @@ use Illuminate\Support\Facades\Log;
 
 class CommentController extends Controller
 {
-    private ?GeminiAIService $ai = null;
+    private CommentModerationService $moderation;
 
-    public function __construct()
+    public function __construct(CommentModerationService $moderation)
     {
-        if (config('gemini.features.comment_moderation') && config('gemini.api_key')) {
-            $this->ai = app(GeminiAIService::class);
-        }
+        $this->moderation = $moderation;
     }
 
     public function store(Request $request): JsonResponse
@@ -33,26 +31,42 @@ class CommentController extends Controller
         $request->validate([
             'news_id' => 'required|integer|exists:news,RowID',
             'content' => 'required|string|min:1|max:2000',
+            'website' => 'prohibited',
         ]);
+
+        $content = trim((string) $request->content);
+        $decision = $this->moderation->moderate($content, Auth::user(), (string) $request->ip());
+        $isApproved = $decision['status'] === NewsComment::STATUS_APPROVED;
 
         $comment = NewsComment::create([
             'news_id' => (int) $request->news_id,
             'user_id' => Auth::id(),
-            'content' => trim((string) $request->content),
-            'is_active' => true,
+            'content' => $content,
+            'is_active' => $isApproved,
+            'moderation_status' => $decision['status'],
+            'moderation_reason' => $decision['reason'] ?: null,
+            'spam_score' => $decision['score'],
+            'ip_address' => $request->ip(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 500),
+            'content_hash' => $decision['content_hash'],
+            'moderated_at' => $isApproved ? now() : null,
         ]);
 
         $comment->load('user');
-        $this->autoModerateCommentIfNeeded($comment);
 
         $news = News::find($request->news_id);
-        if ($news && $comment->is_active) {
+        if ($news && $isApproved) {
             NotificationService::notifyCommentNew($news, $comment, Auth::user());
         }
 
-        return $this->ajaxSuccess('Bình luận đã được gửi.', [
-            'comment' => $this->formatComment($comment),
-        ]);
+        return $this->ajaxSuccess(
+            $isApproved ? 'Bình luận đã được đăng.' : 'Bình luận đã được gửi và đang chờ kiểm duyệt.',
+            [
+                'comment' => $this->formatComment($comment),
+                'visible' => $isApproved,
+                'moderation_status' => $comment->moderation_status,
+            ]
+        );
     }
 
     public function reply(Request $request): JsonResponse
@@ -65,37 +79,54 @@ class CommentController extends Controller
             'news_id' => 'required|integer|exists:news,RowID',
             'parent_id' => 'required|integer|exists:news_comments,id',
             'content' => 'required|string|min:1|max:2000',
+            'website' => 'prohibited',
         ]);
 
         $parent = NewsComment::where('id', $request->parent_id)
             ->where('news_id', $request->news_id)
             ->where('is_active', true)
+            ->where('moderation_status', NewsComment::STATUS_APPROVED)
             ->first();
 
         if (!$parent) {
             return $this->ajaxError('Bình luận gốc không tồn tại hoặc đã bị xóa.', 404);
         }
 
+        $content = trim((string) $request->content);
+        $decision = $this->moderation->moderate($content, Auth::user(), (string) $request->ip());
+        $isApproved = $decision['status'] === NewsComment::STATUS_APPROVED;
+
         $reply = NewsComment::create([
             'news_id' => (int) $request->news_id,
             'user_id' => Auth::id(),
             'parent_id' => (int) $request->parent_id,
-            'content' => trim((string) $request->content),
-            'is_active' => true,
+            'content' => $content,
+            'is_active' => $isApproved,
+            'moderation_status' => $decision['status'],
+            'moderation_reason' => $decision['reason'] ?: null,
+            'spam_score' => $decision['score'],
+            'ip_address' => $request->ip(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 500),
+            'content_hash' => $decision['content_hash'],
+            'moderated_at' => $isApproved ? now() : null,
         ]);
 
         $reply->load('user');
-        $this->autoModerateCommentIfNeeded($reply);
 
         $news = News::find($request->news_id);
-        if ($news && $reply->is_active) {
+        if ($news && $isApproved) {
             NotificationService::notifyCommentReply($news, $reply, $parent, Auth::user());
         }
 
-        return $this->ajaxSuccess('Phản hồi đã được gửi.', [
-            'reply' => $this->formatComment($reply),
-            'parent_id' => (int) $request->parent_id,
-        ]);
+        return $this->ajaxSuccess(
+            $isApproved ? 'Phản hồi đã được đăng.' : 'Phản hồi đã được gửi và đang chờ kiểm duyệt.',
+            [
+                'reply' => $this->formatComment($reply),
+                'parent_id' => (int) $request->parent_id,
+                'visible' => $isApproved,
+                'moderation_status' => $reply->moderation_status,
+            ]
+        );
     }
 
     public function update(Request $request, $id): JsonResponse
@@ -116,14 +147,30 @@ class CommentController extends Controller
             'content' => 'required|string|min:1|max:2000',
         ]);
 
-        $comment->content = trim((string) $request->content);
-        $comment->save();
+        $content = trim((string) $request->content);
+        $decision = $this->moderation->moderate($content, Auth::user(), (string) $request->ip());
+        $isApproved = $decision['status'] === NewsComment::STATUS_APPROVED;
 
-        return $this->ajaxSuccess('Bình luận đã được cập nhật.', [
+        $comment->forceFill([
+            'content' => $content,
+            'is_active' => $isApproved,
+            'moderation_status' => $decision['status'],
+            'moderation_reason' => $decision['reason'] ?: null,
+            'spam_score' => $decision['score'],
+            'ip_address' => $request->ip(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 500),
+            'content_hash' => $decision['content_hash'],
+            'moderated_by' => null,
+            'moderated_at' => $isApproved ? now() : null,
+        ])->save();
+
+        return $this->ajaxSuccess($isApproved ? 'Bình luận đã được cập nhật.' : 'Nội dung sửa đang chờ kiểm duyệt.', [
             'id' => $comment->id,
             'content' => e($comment->content),
             'updated_at' => $comment->updated_at->toIso8601String(),
             'time_ago' => $comment->updated_at->diffForHumans(),
+            'visible' => $isApproved,
+            'moderation_status' => $comment->moderation_status,
         ]);
     }
 
@@ -139,7 +186,7 @@ class CommentController extends Controller
         }
 
         $isOwner = Auth::id() === (int) $comment->user_id;
-        $isAdmin = Auth::user()->canAccessAdmin();
+        $isAdmin = Auth::user()->hasPermission('comment.delete');
 
         if (!$isOwner && !$isAdmin) {
             return $this->ajaxError('Bạn không có quyền xóa bình luận này.', 403);
@@ -213,7 +260,7 @@ class CommentController extends Controller
             'vote_type' => 'required|in:1,-1',
         ]);
 
-        $comment = NewsComment::find($request->comment_id);
+        $comment = NewsComment::approved()->find($request->comment_id);
         if (!$comment) {
             return $this->ajaxError('Không tìm thấy bình luận.', 404);
         }
@@ -252,7 +299,7 @@ class CommentController extends Controller
 
         $comments = NewsComment::with(['user', 'replies.user'])
             ->where('news_id', $request->news_id)
-            ->where('is_active', true)
+            ->approved()
             ->root()
             ->orderBy('created_at', 'DESC')
             ->paginate(10, ['*'], 'page', (int) $request->page);
@@ -316,30 +363,7 @@ class CommentController extends Controller
                 'initial' => $comment->user->initials ?? strtoupper(substr($comment->user->username, 0, 1)),
                 'is_author_admin' => $comment->user->canAccessAdmin(),
             ],
+            'moderation_status' => $comment->moderation_status,
         ];
-    }
-
-    private function autoModerateCommentIfNeeded(NewsComment $comment): void
-    {
-        if (!$this->ai) {
-            return;
-        }
-
-        try {
-            $result = $this->ai->moderateComment(
-                $comment->content,
-                $comment->user?->fullname ?? $comment->user?->username ?? ''
-            );
-
-            if (strtoupper($result['action'] ?? 'FLAG') === 'REJECT') {
-                $comment->is_active = false;
-                $comment->save();
-            }
-        } catch (\Throwable $e) {
-            Log::warning('AI comment moderation failed', [
-                'comment_id' => $comment->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 }

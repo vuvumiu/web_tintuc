@@ -49,10 +49,11 @@ class NewsScheduleController extends Controller
             ]);
         }
 
+        $wasScheduled = $schedule->isScheduled();
         $schedule->approve(Auth::id());
 
         if ($schedule->news) {
-            $schedule->news->Status = $schedule->isScheduled() ? 0 : 1;
+            $schedule->news->Status = $wasScheduled ? 0 : 1;
             $schedule->news->save();
 
             if ($schedule->news->author_id) {
@@ -119,6 +120,16 @@ class NewsScheduleController extends Controller
     public function submitReview($newsId)
     {
         $news = News::findOrFail($newsId);
+        $user = Auth::user();
+        $canManageAll = $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+
+        if (!$canManageAll && (int) $news->author_id !== (int) Auth::id()) {
+            return back()->with([
+                'flash_level' => 'danger',
+                'flash_message' => 'Bạn chỉ được gửi duyệt bài viết do mình phụ trách.',
+            ]);
+        }
+
         $schedule = NewsSchedule::where('news_id', $newsId)->first();
 
         if (!$schedule) {

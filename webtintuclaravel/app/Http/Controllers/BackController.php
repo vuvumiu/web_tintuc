@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use App\Helpers\NotificationHelper;
 use App\Services\NotificationService;
 use App\Models\Contact;
@@ -55,7 +56,13 @@ class BackController extends Controller
             'news_pending' => NewsSchedule::where('status', 'pending')->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
             'news_scheduled' => NewsSchedule::where('status', 'scheduled')->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
             'comment_total' => \App\Models\NewsComment::whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
-            'comment_pending' => \App\Models\NewsComment::where('is_active', false)->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
+            'comment_pending' => Schema::hasColumn('news_comments', 'moderation_status')
+                ? \App\Models\NewsComment::where('moderation_status', \App\Models\NewsComment::STATUS_PENDING)
+                    ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                    ->count()
+                : \App\Models\NewsComment::where('is_active', false)
+                    ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                    ->count(),
             'contacts_new' => Contact::query()->unread()->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
             'members_total' => User::query()->regularAccounts()->whereBetween('created_at', [$rangeStart, $rangeEnd])->count(),
             'newsletter_total' => Newsletter::whereBetween('subscribed_at', [$rangeStart, $rangeEnd])->count(),
@@ -255,6 +262,10 @@ class BackController extends Controller
                 COALESCE(rs.rating_avg, 0) as rating_avg')
             ->orderBy('a.RowID', 'DESC');
 
+        if (!$this->canManageAllNews()) {
+            $query->where('a.author_id', Auth::id());
+        }
+
         if ($request->filled('keyword')) {
             $kw = '%' . trim($request->keyword) . '%';
             $query->where(function ($q) use ($kw) {
@@ -298,8 +309,13 @@ class BackController extends Controller
                 SUM(CASE WHEN sd.status = ? OR (sd.id IS NULL AND a.Status = 0) THEN 1 ELSE 0 END) as news_draft,
                 SUM(CASE WHEN sd.status = ? THEN 1 ELSE 0 END) as news_pending',
                 [NewsSchedule::STATUS_DRAFT, NewsSchedule::STATUS_PENDING]
-            )
-            ->first();
+            );
+
+        if (!$this->canManageAllNews()) {
+            $statsRow->where('a.author_id', Auth::id());
+        }
+
+        $statsRow = $statsRow->first();
 
         $stats = [
             'news_total' => (int) ($statsRow->news_total ?? 0),
@@ -362,6 +378,14 @@ class BackController extends Controller
                 ->with(['flash_level' => 'danger', 'flash_message' => 'Bạn không có quyền xuất bản trực tiếp bài viết.']);
         }
 
+        $request->validate([
+            'Alias' => ['nullable', 'string', 'max:255', Rule::unique('news', 'Alias')],
+            'MetaTitle' => 'nullable|string|max:70',
+            'MetaDescription' => 'nullable|string|max:180',
+            'MetaKeyword' => 'nullable|string|max:500',
+            'SmallDescription' => 'nullable|string|max:500',
+        ]);
+
         $publishType = $submitAction === 'publish_now'
             ? NewsSchedule::PUBLISH_NOW
             : $request->input('publish_type', NewsSchedule::PUBLISH_NOW);
@@ -409,11 +433,8 @@ class BackController extends Controller
         $News = new News;
         $News->RowIDCat = $request->RowIDCat;
         $News->Status = $newsStatus;
-        $News->Name = $request->Name;
-        $News->Alias = $request->Alias;
-        $News->MetaTitle = $request->MetaTitle;
-        $News->MetaDescription = $request->MetaDescription;
-        $News->MetaKeyword = $request->MetaKeyword;
+        $News->Name = trim((string) $request->Name);
+        $this->applyNewsSeoFields($News, $request);
         $News->SmallDescription = $request->SmallDescription;
         $News->Description = $request->Description;
         $News->Views = $request->Views ?? 0;
@@ -461,6 +482,13 @@ class BackController extends Controller
             ]);
         }
 
+        if (!$this->canManageNews($News)) {
+            return redirect('admin/news/list')->with([
+                'flash_level' => 'danger',
+                'flash_message' => 'Bạn chỉ được chỉnh sửa bài viết do mình phụ trách.',
+            ]);
+        }
+
         $NewsCategory = \App\Models\NewsCategory::get();
         $authors = $this->articleAuthorUsers($News->author_id);
         $tags = Tag::active()->orderBy('name')->get(['id', 'name', 'slug']);
@@ -483,6 +511,19 @@ class BackController extends Controller
                 ->withInput()
                 ->with(['flash_level' => 'danger', 'flash_message' => 'Bạn không có quyền xuất bản trực tiếp bài viết.']);
         }
+
+        $request->validate([
+            'Alias' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('news', 'Alias')->ignore($RowID, 'RowID'),
+            ],
+            'MetaTitle' => 'nullable|string|max:70',
+            'MetaDescription' => 'nullable|string|max:180',
+            'MetaKeyword' => 'nullable|string|max:500',
+            'SmallDescription' => 'nullable|string|max:500',
+        ]);
 
         $publishType = $submitAction === 'publish_now'
             ? NewsSchedule::PUBLISH_NOW
@@ -526,6 +567,13 @@ class BackController extends Controller
             ]);
         }
 
+        if (!$this->canManageNews($News)) {
+            return redirect('admin/news/list')->with([
+                'flash_level' => 'danger',
+                'flash_message' => 'Bạn chỉ được chỉnh sửa bài viết do mình phụ trách.',
+            ]);
+        }
+
         $authorId = $this->resolveAuthorIdForNews($request->input('author_id'), $News->author_id);
         if (!$authorId) {
             return redirect()->back()
@@ -535,11 +583,8 @@ class BackController extends Controller
 
         $News->RowIDCat = $request->RowIDCat;
         $News->Status = $submitAction === 'publish_now' ? 1 : 0;
-        $News->Name = $request->Name;
-        $News->Alias = $request->Alias;
-        $News->MetaTitle = $request->MetaTitle;
-        $News->MetaDescription = $request->MetaDescription;
-        $News->MetaKeyword = $request->MetaKeyword;
+        $News->Name = trim((string) $request->Name);
+        $this->applyNewsSeoFields($News, $request);
         $News->SmallDescription = $request->SmallDescription;
         $News->Description = $request->Description;
         $News->Views = $request->Views ?? 0;
@@ -585,6 +630,13 @@ class BackController extends Controller
             return redirect('admin/news/list')->with(NotificationHelper::newsNotFound());
         }
 
+        if (!$this->canManageNews($News)) {
+            return redirect('admin/news/list')->with([
+                'flash_level' => 'danger',
+                'flash_message' => 'Bạn không có quyền xóa bài viết này.',
+            ]);
+        }
+
         $name = $News->Name;
 
         if ($News->Images) {
@@ -609,6 +661,13 @@ class BackController extends Controller
             return redirect('admin/news/list')->with([
                 'flash_level'   => 'danger',
                 'flash_message' => 'Bài viết không tồn tại.',
+            ]);
+        }
+
+        if (!$this->canManageNews($original)) {
+            return redirect('admin/news/list')->with([
+                'flash_level' => 'danger',
+                'flash_message' => 'Bạn không có quyền sao chép bài viết này.',
             ]);
         }
 
@@ -649,6 +708,14 @@ class BackController extends Controller
         ]);
 
         $ids = array_filter(array_map('intval', explode(',', $request->ids)));
+        if (!$this->canManageAllNews()) {
+            $ids = News::query()
+                ->whereIn('RowID', $ids)
+                ->where('author_id', Auth::id())
+                ->pluck('RowID')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
         if (empty($ids)) {
             return redirect('admin/news/list')->with([
                 'flash_level'   => 'warning',
@@ -1900,6 +1967,12 @@ class BackController extends Controller
 
     private function historicalAuthorUsers()
     {
+        if (!$this->canManageAllNews()) {
+            return User::query()
+                ->where('id', Auth::id())
+                ->get(['id', 'fullname', 'username']);
+        }
+
         return User::query()
             ->authorAccounts()
             ->orderBy('fullname')
@@ -1908,6 +1981,12 @@ class BackController extends Controller
 
     private function articleAuthorUsers(?int $selectedAuthorId = null)
     {
+        if (!$this->canManageAllNews()) {
+            return User::query()
+                ->where('id', Auth::id())
+                ->get(['id', 'fullname', 'username']);
+        }
+
         $authors = User::query()
             ->authorCandidates()
             ->orderBy('fullname')
@@ -1932,6 +2011,10 @@ class BackController extends Controller
 
     private function resolveAuthorIdForNews($requestedAuthorId, ?int $currentAuthorId = null): ?int
     {
+        if (!$this->canManageAllNews()) {
+            return Auth::id() ? (int) Auth::id() : $currentAuthorId;
+        }
+
         $requestedAuthorId = $requestedAuthorId ? (int) $requestedAuthorId : null;
 
         if ($requestedAuthorId) {
@@ -1969,6 +2052,22 @@ class BackController extends Controller
         }
 
         return $currentAuthorId;
+    }
+
+    private function canManageAllNews(): bool
+    {
+        $user = Auth::user();
+
+        return $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+    }
+
+    private function canManageNews(News $news): bool
+    {
+        if ($this->canManageAllNews()) {
+            return true;
+        }
+
+        return Auth::check() && (int) $news->author_id === (int) Auth::id();
     }
 
     private function resolveDashboardDateRange(Request $request): array
@@ -2986,6 +3085,51 @@ class BackController extends Controller
             ]);
             $tag->incrementPopular();
         }
+    }
+
+    private function applyNewsSeoFields(News $news, Request $request): void
+    {
+        $title = trim((string) $request->input('Name'));
+        $alias = Str::slug(trim((string) $request->input('Alias', '')) ?: $title, '-');
+
+        if ($alias === '') {
+            $alias = 'bai-viet-' . now()->format('YmdHis');
+        }
+
+        $baseAlias = $alias;
+        $suffix = 2;
+        while (News::query()
+            ->where('Alias', $alias)
+            ->when($news->exists, function ($query) use ($news) {
+                $query->where('RowID', '<>', $news->RowID);
+            })
+            ->exists()) {
+            $alias = $baseAlias . '-' . $suffix;
+            $suffix++;
+        }
+
+        $news->Alias = $alias;
+        $news->MetaTitle = mb_substr(
+            trim((string) $request->input('MetaTitle')) ?: $title,
+            0,
+            70
+        );
+
+        $description = trim((string) $request->input('MetaDescription'));
+        if ($description === '') {
+            $description = trim((string) $request->input('SmallDescription'));
+        }
+        if ($description === '') {
+            $description = trim(strip_tags((string) $request->input('Description')));
+        }
+        $description = preg_replace('/\s+/u', ' ', $description) ?? $description;
+
+        $news->MetaDescription = mb_substr($description, 0, 180);
+        $news->MetaKeyword = mb_substr(
+            trim((string) $request->input('MetaKeyword')),
+            0,
+            500
+        );
     }
 
     private function createOrUpdateSchedule(

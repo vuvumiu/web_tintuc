@@ -366,6 +366,7 @@ $(document).on('submit', '#ratingForm', function (e) {
 
 // ========== COMMENT VOTE ==========
 $(document).on('click', '.btn-vote', function () {
+    if (window.VNX_DETAIL_COMMENT_HANDLERS) return;
     var csrf = $('meta[name="csrf-token"]').attr('content');
     var commentId = $(this).data('comment-id');
     var voteType = $(this).data('vote-type');
@@ -389,6 +390,7 @@ $(document).on('click', '.btn-vote', function () {
 
 // ========== COMMENT REPLY SUBMIT ==========
 $(document).on('click', '.btn-submit-reply', function () {
+    if (window.VNX_DETAIL_COMMENT_HANDLERS) return;
     var csrf = $('meta[name="csrf-token"]').attr('content');
     var parentId = $(this).data('parent-id');
     var replyText = $('#replyText-' + parentId).val().trim();
@@ -427,6 +429,7 @@ $(document).on('click', '.btn-submit-reply', function () {
 
 // ========== COMMENT EDIT SAVE ==========
 $(document).on('click', '.btn-save-edit', function () {
+    if (window.VNX_DETAIL_COMMENT_HANDLERS) return;
     var csrf = $('meta[name="csrf-token"]').attr('content');
     var commentId = $(this).data('comment-id');
     var newContent = $('#editText-' + commentId).val().trim();

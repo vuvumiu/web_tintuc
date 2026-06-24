@@ -111,6 +111,16 @@
                     @endif
                 </select>
             </div>
+            <div class="vu-filter-group">
+                <label>Kiểm duyệt</label>
+                <select name="moderation_status" class="vu-select">
+                    <option value="">-- Tất cả --</option>
+                    <option value="pending" {{ request('moderation_status') === 'pending' ? 'selected' : '' }}>Chờ duyệt</option>
+                    <option value="approved" {{ request('moderation_status') === 'approved' ? 'selected' : '' }}>Đã duyệt</option>
+                    <option value="rejected" {{ request('moderation_status') === 'rejected' ? 'selected' : '' }}>Từ chối</option>
+                    <option value="spam" {{ request('moderation_status') === 'spam' ? 'selected' : '' }}>Spam</option>
+                </select>
+            </div>
             <button type="submit" class="btn-search"><i class="fas fa-search"></i> Lọc</button>
             <a href="{{ url('admin/comment/list') }}" class="action-btn-sm" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md);" title="Reset"><i class="fas fa-redo"></i></a>
         </div>
@@ -126,9 +136,18 @@
             <strong id="bulk-count">0</strong> bình luận được chọn
             <select name="action" id="bulk-action-select" class="vu-select">
                 <option value="">-- Chọn thao tác --</option>
-                <option value="show">Hiển thị</option>
-                <option value="hide">Ẩn</option>
-                <option value="delete">Xóa</option>
+                @if(Auth::user()->hasPermission('comment.hide'))
+                    <option value="show">Hiển thị</option>
+                    <option value="hide">Ẩn</option>
+                @endif
+                @if(Auth::user()->hasPermission('comment.moderate'))
+                    <option value="approve">Duyệt</option>
+                    <option value="reject">Từ chối</option>
+                    <option value="spam">Đánh dấu spam</option>
+                @endif
+                @if(Auth::user()->hasPermission('comment.delete'))
+                    <option value="delete">Xóa</option>
+                @endif
             </select>
             <button type="button" class="btn-bulk execute" onclick="submitBulk()" id="bulk-submit-btn" disabled><i class="fas fa-play"></i> Thực hiện</button>
         </div>
@@ -179,34 +198,86 @@
                     <td>
                         <span style="color: var(--text-secondary); font-size: 12px;">{{ Str::limit($c->content, 80) }}</span>
                         <br><small style="color: var(--text-muted); font-size: 10px;"><i class="far fa-clock mr-1"></i>{{ $c->created_at->format('d/m/Y H:i') }}</small>
+                        @if($c->moderation_reason)
+                            <br><small style="color:var(--status-warning);font-size:10px;" title="{{ $c->moderation_reason }}">
+                                <i class="fas fa-shield-alt mr-1"></i>{{ Str::limit($c->moderation_reason, 90) }}
+                            </small>
+                        @endif
                     </td>
                     <td style="text-align: center;">
-                        @if($c->is_active)
-                            <span class="vu-badge-sm success"><i class="fas fa-check mr-1"></i>Hiển thị</span>
-                        @else
-                            <span class="vu-badge-sm neutral"><i class="fas fa-eye-slash mr-1"></i>Ẩn</span>
+                        @switch($c->moderation_status)
+                            @case('approved')
+                                <span class="vu-badge-sm success"><i class="fas fa-check mr-1"></i>Đã duyệt</span>
+                                @break
+                            @case('pending')
+                                <span class="vu-badge-sm warning"><i class="fas fa-clock mr-1"></i>Chờ duyệt</span>
+                                @break
+                            @case('spam')
+                                <span class="vu-badge-sm danger"><i class="fas fa-ban mr-1"></i>Spam</span>
+                                @break
+                            @default
+                                <span class="vu-badge-sm neutral"><i class="fas fa-eye-slash mr-1"></i>Từ chối</span>
+                        @endswitch
+                        @if($c->spam_score)
+                            <small class="d-block mt-1" style="color:var(--text-muted)">Điểm: {{ $c->spam_score }}</small>
                         @endif
                     </td>
                     <td>
                         <div class="action-group" style="justify-content: center;">
-                            <button type="button" class="action-btn-sm" title="Kiểm duyệt AI" onclick="showAIModModal(); window.checkAIComment({{ $c->id }}, this.closest('tr'));"
-                                style="background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.3); color: #9b59b6;"
-                                data-comment-id="{{ $c->id }}">
-                                <i class="fas fa-robot"></i>
-                            </button>
-                            <form method="POST" action="{{ url('admin/comment/toggle/'.$c->id) }}" class="d-inline" onsubmit="return confirm('Cập nhật trạng thái?');">
-                                @csrf
-                                <input type="hidden" name="is_active" value="{{ $c->is_active ? 0 : 1 }}">
-                                <button type="submit" class="action-btn-sm" title="{{ $c->is_active ? 'Ẩn' : 'Hiện' }}"
-                                        style="background: {{ $c->is_active ? 'rgba(108,117,125,0.2)' : 'rgba(40,167,69,0.2)' }}; border-color: {{ $c->is_active ? 'rgba(108,117,125,0.3)' : 'rgba(40,167,69,0.3)' }}; color: {{ $c->is_active ? 'var(--text-muted)' : 'var(--status-success)' }};">
-                                    <i class="fas {{ $c->is_active ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+                            @if(Auth::user()->hasPermission('comment.moderate'))
+                                @if($c->moderation_status !== 'approved')
+                                    <form method="POST" action="{{ url('admin/comment/moderate/'.$c->id) }}" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="action-btn-sm" title="Duyệt"
+                                                style="color:var(--status-success);border-color:rgba(13,158,110,.3)">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                                @if($c->moderation_status === 'pending' || $c->moderation_status === 'approved')
+                                    <form method="POST" action="{{ url('admin/comment/moderate/'.$c->id) }}" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="action" value="reject">
+                                        <button type="submit" class="action-btn-sm" title="Từ chối">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                                @if($c->moderation_status !== 'spam')
+                                    <form method="POST" action="{{ url('admin/comment/moderate/'.$c->id) }}" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="action" value="spam">
+                                        <button type="submit" class="action-btn-sm danger" title="Đánh dấu spam">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
+                            @if(Auth::user()->hasPermission('comment.moderate'))
+                                <button type="button" class="action-btn-sm" title="Kiểm duyệt AI" onclick="showAIModModal(); window.checkAIComment({{ $c->id }}, this.closest('tr'));"
+                                    style="background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.3); color: #9b59b6;"
+                                    data-comment-id="{{ $c->id }}">
+                                    <i class="fas fa-robot"></i>
                                 </button>
-                            </form>
-                            <form action="{{ url('admin/comment/delete/'.$c->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Xóa bình luận?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="action-btn-sm danger" title="Xóa"><i class="fas fa-trash"></i></button>
-                            </form>
+                            @endif
+                            @if(Auth::user()->hasPermission('comment.hide'))
+                                <form method="POST" action="{{ url('admin/comment/toggle/'.$c->id) }}" class="d-inline" onsubmit="return confirm('Cập nhật trạng thái?');">
+                                    @csrf
+                                    <input type="hidden" name="is_active" value="{{ $c->is_active ? 0 : 1 }}">
+                                    <button type="submit" class="action-btn-sm" title="{{ $c->is_active ? 'Ẩn' : 'Hiện' }}"
+                                            style="background: {{ $c->is_active ? 'rgba(108,117,125,0.2)' : 'rgba(40,167,69,0.2)' }}; border-color: {{ $c->is_active ? 'rgba(108,117,125,0.3)' : 'rgba(40,167,69,0.3)' }}; color: {{ $c->is_active ? 'var(--text-muted)' : 'var(--status-success)' }};">
+                                        <i class="fas {{ $c->is_active ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+                                    </button>
+                                </form>
+                            @endif
+                            @if(Auth::user()->hasPermission('comment.delete'))
+                                <form action="{{ url('admin/comment/delete/'.$c->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Xóa bình luận?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="action-btn-sm danger" title="Xóa"><i class="fas fa-trash"></i></button>
+                                </form>
+                            @endif
                         </div>
                     </td>
                 </tr>

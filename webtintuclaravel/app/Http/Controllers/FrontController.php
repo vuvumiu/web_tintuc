@@ -314,7 +314,7 @@ class FrontController extends Controller
         // Comments with pagination
         $comments = NewsComment::with(["user", "replies.user"])
             ->where("news_id", $newsDetail->RowID)
-            ->where("is_active", true)
+            ->approved()
             ->root()
             ->orderBy("created_at", "DESC")
             ->paginate(10);

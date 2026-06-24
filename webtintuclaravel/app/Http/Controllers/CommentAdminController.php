@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\News;
 use App\Models\NewsComment;
 use App\Models\NewsRating;
+use App\Services\NotificationService;
 
 class CommentAdminController extends Controller
 {
@@ -18,9 +19,14 @@ class CommentAdminController extends Controller
     // ── Bình luận ──────────────────────────────────────────
     public function index(Request $request)
     {
-        $query = NewsComment::with(['user', 'news'])
-            ->root()
+        $query = NewsComment::with(['user', 'news', 'parent.user'])
             ->orderBy('created_at', 'DESC');
+
+        if ($request->input('type') === 'root') {
+            $query->root();
+        } elseif ($request->input('type') === 'reply') {
+            $query->whereNotNull('parent_id')->where('parent_id', '>', 0);
+        }
 
         if ($request->has('keyword') && $request->keyword != '') {
             $query->where('content', 'like', '%' . $request->keyword . '%');
@@ -29,12 +35,20 @@ class CommentAdminController extends Controller
         if ($request->has('is_active') && $request->is_active !== '') {
             $query->where('is_active', (int) $request->is_active);
         }
+        if ($request->filled('moderation_status')) {
+            $query->where('moderation_status', $request->moderation_status);
+        }
+        if ($request->filled('news_id')) {
+            $query->where('news_id', (int) $request->news_id);
+        }
 
         $comments = $query->paginate(20);
         $stats = [
-            'total'   => NewsComment::root()->count(),
-            'active'  => NewsComment::root()->where('is_active', 1)->count(),
-            'hidden'  => NewsComment::root()->where('is_active', 0)->count(),
+            'total' => NewsComment::count(),
+            'active' => NewsComment::where('moderation_status', NewsComment::STATUS_APPROVED)->count(),
+            'pending' => NewsComment::where('moderation_status', NewsComment::STATUS_PENDING)->count(),
+            'rejected' => NewsComment::where('moderation_status', NewsComment::STATUS_REJECTED)->count(),
+            'spam' => NewsComment::where('moderation_status', NewsComment::STATUS_SPAM)->count(),
         ];
         $news = News::orderByDesc('RowID')->get(['RowID', 'Name']);
 
@@ -44,14 +58,59 @@ class CommentAdminController extends Controller
     public function toggle($id)
     {
         $comment = NewsComment::findOrFail($id);
-        $comment->is_active = $comment->is_active ? 0 : 1;
-        $comment->save();
-
-        $msg = $comment->is_active ? 'Bình luận đã được hiển thị.' : 'Bình luận đã được ẩn.';
+        if ($comment->is_active) {
+            $comment->reject(Auth::id(), 'Đã được quản trị viên ẩn.');
+            $msg = 'Bình luận đã được ẩn.';
+        } else {
+            $comment->approve(Auth::id(), 'Đã được quản trị viên hiển thị.');
+            $msg = 'Bình luận đã được hiển thị.';
+        }
 
         return back()->with([
             'flash_level'   => 'success',
             'flash_message' => $msg,
+        ]);
+    }
+
+    public function moderate(Request $request, $id)
+    {
+        $request->validate([
+            'action' => 'required|in:approve,reject,spam',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $comment = NewsComment::with(['news', 'user', 'parent'])->findOrFail($id);
+        $reason = trim((string) $request->input('reason'));
+        $wasApproved = $comment->moderation_status === NewsComment::STATUS_APPROVED;
+
+        if ($request->action === 'approve') {
+            $comment->approve(Auth::id(), $reason ?: 'Đã được quản trị viên duyệt.');
+            if (!$wasApproved && $comment->news && $comment->user) {
+                if ($comment->parent_id && $comment->parent) {
+                    NotificationService::notifyCommentReply(
+                        $comment->news,
+                        $comment,
+                        $comment->parent,
+                        $comment->user
+                    );
+                } else {
+                    NotificationService::notifyCommentNew($comment->news, $comment, $comment->user);
+                }
+            }
+            $message = 'Bình luận đã được duyệt.';
+        } else {
+            $isSpam = $request->action === 'spam';
+            $comment->reject(
+                Auth::id(),
+                $reason ?: ($isSpam ? 'Đã được đánh dấu là spam.' : 'Không đạt yêu cầu kiểm duyệt.'),
+                $isSpam
+            );
+            $message = $isSpam ? 'Bình luận đã được đánh dấu spam.' : 'Bình luận đã bị từ chối.';
+        }
+
+        return back()->with([
+            'flash_level' => 'success',
+            'flash_message' => $message,
         ]);
     }
 
@@ -125,7 +184,7 @@ class CommentAdminController extends Controller
     {
         $request->validate([
             'ids'   => 'required|string',
-            'action' => 'required|in:delete,show,hide',
+            'action' => 'required|in:delete,show,hide,approve,reject,spam',
         ], [
             'ids.required'   => 'Chưa chọn bình luận nào.',
             'action.required' => 'Chưa chọn thao tác.',
@@ -138,6 +197,14 @@ class CommentAdminController extends Controller
                 'flash_message' => 'Không có bình luận nào được chọn.',
             ]);
         }
+
+        $requiredPermission = match ($request->action) {
+            'delete' => 'comment.delete',
+            'show', 'hide' => 'comment.hide',
+            'approve', 'reject', 'spam' => 'comment.moderate',
+        };
+
+        abort_unless(Auth::user()->hasPermission($requiredPermission), 403);
 
         $count = count($ids);
 
@@ -154,13 +221,26 @@ class CommentAdminController extends Controller
                 break;
 
             case 'show':
-                NewsComment::whereIn('id', $ids)->update(['is_active' => 1]);
-                $msg = "Đã hiển thị {$count} bình luận.";
+            case 'approve':
+                NewsComment::whereIn('id', $ids)->get()->each(function (NewsComment $comment) {
+                    $comment->approve(Auth::id(), 'Đã được duyệt hàng loạt.');
+                });
+                $msg = "Đã duyệt {$count} bình luận.";
                 break;
 
             case 'hide':
-                NewsComment::whereIn('id', $ids)->update(['is_active' => 0]);
-                $msg = "Đã ẩn {$count} bình luận.";
+            case 'reject':
+                NewsComment::whereIn('id', $ids)->get()->each(function (NewsComment $comment) {
+                    $comment->reject(Auth::id(), 'Đã bị từ chối hàng loạt.');
+                });
+                $msg = "Đã từ chối {$count} bình luận.";
+                break;
+
+            case 'spam':
+                NewsComment::whereIn('id', $ids)->get()->each(function (NewsComment $comment) {
+                    $comment->reject(Auth::id(), 'Đã bị đánh dấu spam hàng loạt.', true);
+                });
+                $msg = "Đã đánh dấu spam {$count} bình luận.";
                 break;
         }
 

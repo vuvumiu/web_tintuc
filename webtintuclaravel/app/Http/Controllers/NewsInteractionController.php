@@ -107,7 +107,7 @@ class NewsInteractionController extends Controller
 
         $comments = $news->comments()
             ->with(['user', 'replies.user'])
-            ->where('is_active', true)
+            ->approved()
             ->root()
             ->orderBy('created_at', 'DESC')
             ->limit(5)
