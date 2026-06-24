@@ -23,16 +23,22 @@ class Permission extends Model
     {
         return [
             'news' => 'Bai viet',
+            'ai' => 'Cong cu AI',
             'category' => 'Danh muc',
-            'staff' => 'Nhan vien',
+            'admin-manager' => 'Nhan vien noi bo',
+            'member' => 'Thanh vien',
             'author' => 'Tac gia',
-            'account' => 'Tai khoan',
             'system' => 'He thong',
             'newsletter' => 'Newsletter',
             'contact' => 'Lien he',
             'comment' => 'Binh luan',
             'tag' => 'Tags',
             'role' => 'Phan quyen',
+            'featured' => 'Bai viet noi bat',
+            'ticker' => 'Tin nong',
+            'ads' => 'Quang cao',
+            'social' => 'Mang xa hoi',
+            'page' => 'Trang noi dung',
         ];
     }
 }

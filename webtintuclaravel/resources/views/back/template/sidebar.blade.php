@@ -28,8 +28,8 @@
     $canNewsletter = $canAny(['newsletter.list', 'newsletter.export']);
     $canContact = $canAny(['contact.list', 'contact.reply']);
     $canComment = $canAny(['comment.list', 'comment.delete', 'comment.hide', 'comment.moderate']);
-    $canAi = $menuIsAdmin;
-    $canTicker = $menuIsAdmin || $menuUser?->isStaff();
+    $canAi = $canAny(['ai.use']);
+    $canTicker = $canAny(['ticker.manage']);
 
     $aiActive = request()->is('admin/ai', 'admin/ai/*');
 @endphp

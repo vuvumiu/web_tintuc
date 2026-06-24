@@ -250,7 +250,7 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
         Route::get('queue', [NewsScheduleController::class, 'approvalQueue'])->middleware('permission:news.approve');
         Route::get('approve/{id}', [NewsScheduleController::class, 'approve'])->middleware('permission:news.approve');
         Route::post('reject/{id}', [NewsScheduleController::class, 'reject'])->middleware('permission:news.approve');
-        Route::get('drafts', [NewsScheduleController::class, 'drafts']);
+        Route::get('drafts', [NewsScheduleController::class, 'drafts'])->middleware('permission:news.list|news.create|news.edit|news.approve');
     });
 
     // Slider (legacy - giữ lại để tương thích ngược)
@@ -275,13 +275,13 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
 
     // Tin nóng (Ticker)
     Route::group(['prefix' => 'ticker'], function () {
-        Route::get('list', [TickerController::class, 'list']);
-        Route::get('add', [TickerController::class, 'getAdd']);
-        Route::post('add', [TickerController::class, 'postAdd']);
-        Route::get('edit/{id}', [TickerController::class, 'getEdit']);
-        Route::post('edit/{id}', [TickerController::class, 'postEdit']);
-        Route::delete('delete/{id}', [TickerController::class, 'delete']);
-        Route::post('toggle/{id}', [TickerController::class, 'toggle']);
+        Route::get('list', [TickerController::class, 'list'])->middleware('permission:ticker.manage');
+        Route::get('add', [TickerController::class, 'getAdd'])->middleware('permission:ticker.manage');
+        Route::post('add', [TickerController::class, 'postAdd'])->middleware('permission:ticker.manage');
+        Route::get('edit/{id}', [TickerController::class, 'getEdit'])->middleware('permission:ticker.manage');
+        Route::post('edit/{id}', [TickerController::class, 'postEdit'])->middleware('permission:ticker.manage');
+        Route::delete('delete/{id}', [TickerController::class, 'delete'])->middleware('permission:ticker.manage');
+        Route::post('toggle/{id}', [TickerController::class, 'toggle'])->middleware('permission:ticker.manage');
     });
 
     // Bài viết nổi bật (Featured News)
@@ -327,11 +327,11 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'admin']], function 
 
     // AI Tools (admin only)
     Route::group(['prefix' => 'ai'], function () {
-        Route::get('dashboard', [AdminAIController::class, 'dashboard'])->middleware('admin');
+        Route::get('dashboard', [AdminAIController::class, 'dashboard'])->middleware('permission:ai.use');
         Route::get('settings', [AdminAIController::class, 'settings'])->middleware('admin');
         Route::post('settings', [AdminAIController::class, 'settings'])->middleware('admin');
-        Route::post('generate-meta', [AdminAIController::class, 'generateMeta']);
-        Route::post('suggest-tags', [AdminAIController::class, 'suggestTags']);
+        Route::post('generate-meta', [AdminAIController::class, 'generateMeta'])->middleware('permission:ai.use');
+        Route::post('suggest-tags', [AdminAIController::class, 'suggestTags'])->middleware('permission:ai.use');
         Route::post('moderate-comment', [AdminAIController::class, 'moderateComment'])->middleware('permission:comment.moderate');
         Route::post('moderate-comment-bulk', [AdminAIController::class, 'moderateCommentBulk'])->middleware('permission:comment.moderate');
     });

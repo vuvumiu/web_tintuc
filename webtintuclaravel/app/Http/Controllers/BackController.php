@@ -24,6 +24,7 @@ use App\Models\NewsViewStat;
 use App\Models\NewsRating;
 use App\Models\NewsTicker;
 use App\Models\Page;
+use App\Models\Role;
 use App\Models\Slider;
 use App\Models\Social;
 use App\Models\Ad;
@@ -999,7 +1000,11 @@ class BackController extends Controller
         $level = $request->input('level', '');
         $status = $request->input('status', '');
 
-        $query = User::query()->adminAccounts()->withCount('authoredNews')->orderBy('id', 'desc');
+        $query = User::query()
+            ->adminAccounts()
+            ->with('roles:id,name,display_name')
+            ->withCount('authoredNews')
+            ->orderBy('id', 'desc');
 
         if ($keyword !== '') {
             $kw = '%' . $keyword . '%';
@@ -1033,8 +1038,9 @@ class BackController extends Controller
     public function staff_add()
     {
         $UserLevel = UserLevel::orderBy('id')->get();
+        $roles = Role::query()->orderBy('display_name')->get(['id', 'name', 'display_name', 'description']);
 
-        return view('back.staff.add', compact('UserLevel'));
+        return view('back.staff.add', compact('UserLevel', 'roles'));
     }
 
     public function staff_add_post(Request $request)
@@ -1043,6 +1049,8 @@ class BackController extends Controller
             'level'    => 'required|integer|exists:users_level,id',
             'is_active'=> 'nullable|in:0,1',
             'is_author'=> 'nullable|in:0,1',
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'integer|exists:roles,id',
             'fullname' => 'required|string|max:255',
             'email'    => 'required|email|max:255|unique:users,email',
             'phone'    => 'nullable|string|max:50',
@@ -1076,6 +1084,7 @@ class BackController extends Controller
                 : 0;
         }
         $u->save();
+        $this->syncStaffRoles($u, $request);
 
         return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã thêm nhân viên.']);
     }
@@ -1084,8 +1093,10 @@ class BackController extends Controller
     {
         $User = User::where('id', $id)->adminAccounts()->firstOrFail();
         $UserLevel = UserLevel::orderBy('id')->get();
+        $roles = Role::query()->orderBy('display_name')->get(['id', 'name', 'display_name', 'description']);
+        $selectedRoleIds = $User->roles()->pluck('roles.id')->map(fn ($roleId) => (int) $roleId)->all();
 
-        return view('back.staff.edit', compact('User', 'UserLevel'));
+        return view('back.staff.edit', compact('User', 'UserLevel', 'roles', 'selectedRoleIds'));
     }
 
     public function staff_edit_post(Request $request, $id)
@@ -1096,6 +1107,8 @@ class BackController extends Controller
             'level'    => 'required|integer|exists:users_level,id',
             'is_active'=> 'nullable|in:0,1',
             'is_author'=> 'nullable|in:0,1',
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'integer|exists:roles,id',
             'fullname' => 'required|string|max:255',
             'email'    => 'required|email|max:255|unique:users,email,' . $User->id,
             'phone'    => 'nullable|string|max:50',
@@ -1135,6 +1148,7 @@ class BackController extends Controller
         }
 
         $User->save();
+        $this->syncStaffRoles($User, $request);
 
         return redirect()->to(url('admin/admin-manager/list'))->with(['flash_level' => 'success', 'flash_message' => 'Đã cập nhật nhân viên.']);
     }
@@ -2058,7 +2072,43 @@ class BackController extends Controller
     {
         $user = Auth::user();
 
-        return $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+        return $user && (
+            $user->isAdmin()
+            || $user->hasPermission('news.approve')
+            || $user->hasPermission('news.edit_all')
+        );
+    }
+
+    private function syncStaffRoles(User $user, Request $request): void
+    {
+        if ($user->isAdmin()) {
+            $superAdminRoleId = Role::query()->where('name', 'super_admin')->value('id');
+            $user->roles()->sync($superAdminRoleId ? [(int) $superAdminRoleId] : []);
+            return;
+        }
+
+        if (Auth::user()?->isAdmin()) {
+            $roleIds = collect($request->input('role_ids', []))
+                ->map(fn ($roleId) => (int) $roleId)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $superAdminRoleId = Role::query()->where('name', 'super_admin')->value('id');
+            if ($superAdminRoleId) {
+                $roleIds = array_values(array_diff($roleIds, [(int) $superAdminRoleId]));
+            }
+        } else {
+            $roleIds = $user->roles()->pluck('roles.id')->map(fn ($roleId) => (int) $roleId)->all();
+        }
+
+        if (empty($roleIds)) {
+            $defaultRole = $user->isAuthor() ? 'writer' : 'viewer';
+            $defaultRoleId = Role::query()->where('name', $defaultRole)->value('id');
+            $roleIds = $defaultRoleId ? [(int) $defaultRoleId] : [];
+        }
+
+        $user->roles()->sync($roleIds);
     }
 
     private function canManageNews(News $news): bool

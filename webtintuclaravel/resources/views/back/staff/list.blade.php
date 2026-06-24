@@ -271,9 +271,11 @@
 <div class="vu-page-header">
     <h1><i class="fas fa-user-shield mr-2" style="color: var(--accent-gold);"></i>Quản lý nhân viên nội bộ</h1>
     <div class="d-flex gap-2" style="flex-wrap: wrap;">
+        @if(Auth::user()->hasPermission('admin-manager.create'))
         <a href="{{ url('admin/admin-manager/add') }}" class="btn-gold">
             <i class="fas fa-user-plus"></i> Thêm tài khoản
         </a>
+        @endif
         @if(Auth::user()->hasAnyPermission(['author.list', 'author.manage']))
             <a href="{{ url('admin/authors/list') }}" class="btn-outline">
                 <i class="fas fa-feather-alt"></i> Quản lý tác giả
@@ -330,6 +332,7 @@
                     <th>Tài khoản</th>
                     <th>Họ và tên</th>
                     <th style="width: 150px;">Cấp bậc</th>
+                    <th style="width: 190px;">Vai trò</th>
                     <th style="width: 150px;">Tác giả</th>
                     <th style="width: 100px; text-align: center;">Bài đã đăng</th>
                     <th>Email</th>
@@ -353,6 +356,13 @@
                         @else
                             <span class="vu-badge-sm warning"><i class="fas fa-user mr-1"></i>Nhân viên</span>
                         @endif
+                    </td>
+                    <td>
+                        @forelse($item->roles as $role)
+                            <span class="vu-badge-sm gold" style="margin:2px;">{{ $role->display_name }}</span>
+                        @empty
+                            <span class="vu-badge-sm danger">Chưa phân quyền</span>
+                        @endforelse
                     </td>
                     <td>
                         @if((int) ($item->is_author ?? 0) === 1)
@@ -386,23 +396,28 @@
                                 </a>
                             @endif
 
-                            <a href="{{ url('admin/admin-manager/edit/' . $item->id) }}" class="action-btn-sm" title="Chỉnh sửa">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url('admin/admin-manager/delete/' . $item->id) }}" method="POST" class="d-inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="action-btn-sm danger" title="Xóa"
-                                        onclick="return confirm('Bạn có chắc muốn xóa tài khoản nội bộ này?');">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </form>
+                            @if(Auth::user()->hasPermission('admin-manager.edit'))
+                                <a href="{{ url('admin/admin-manager/edit/' . $item->id) }}" class="action-btn-sm" title="Chỉnh sửa">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            @endif
+
+                            @if(Auth::user()->hasPermission('admin-manager.delete'))
+                                <form action="{{ url('admin/admin-manager/delete/' . $item->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="action-btn-sm danger" title="Xóa"
+                                            onclick="return confirm('Bạn có chắc muốn xóa tài khoản nội bộ này?');">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9">
+                    <td colspan="10">
                         <div class="empty-state-dark">
                             <div class="empty-icon"><i class="fas fa-users"></i></div>
                             <h3>Chưa có tài khoản nào</h3>

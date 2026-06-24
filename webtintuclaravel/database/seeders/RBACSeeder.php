@@ -13,6 +13,7 @@ class RBACSeeder extends Seeder
             ['name' => 'news.list', 'display_name' => 'Xem danh sach bai viet', 'group' => 'news', 'description' => null],
             ['name' => 'news.create', 'display_name' => 'Tao bai viet moi', 'group' => 'news', 'description' => null],
             ['name' => 'news.edit', 'display_name' => 'Chinh sua bai viet', 'group' => 'news', 'description' => null],
+            ['name' => 'news.edit_all', 'display_name' => 'Chinh sua moi bai viet', 'group' => 'news', 'description' => null],
             ['name' => 'news.delete', 'display_name' => 'Xoa bai viet', 'group' => 'news', 'description' => null],
             ['name' => 'news.approve', 'display_name' => 'Duyet bai viet', 'group' => 'news', 'description' => null],
             ['name' => 'news.preview', 'display_name' => 'Xem truoc bai viet', 'group' => 'news', 'description' => null],
@@ -60,8 +61,11 @@ class RBACSeeder extends Seeder
 
             ['name' => 'slider.manage', 'display_name' => 'Quan ly slider', 'group' => 'slider', 'description' => null],
             ['name' => 'ads.manage', 'display_name' => 'Quan ly quang cao', 'group' => 'ads', 'description' => null],
+            ['name' => 'featured.manage', 'display_name' => 'Quan ly bai viet noi bat', 'group' => 'featured', 'description' => null],
+            ['name' => 'ticker.manage', 'display_name' => 'Quan ly tin nong', 'group' => 'ticker', 'description' => null],
             ['name' => 'social.manage', 'display_name' => 'Quan ly social', 'group' => 'social', 'description' => null],
             ['name' => 'page.manage', 'display_name' => 'Quan ly trang', 'group' => 'page', 'description' => null],
+            ['name' => 'ai.use', 'display_name' => 'Su dung cong cu AI noi dung', 'group' => 'ai', 'description' => null],
         ];
 
         $permissionIds = [];
@@ -81,6 +85,7 @@ class RBACSeeder extends Seeder
         $roles = [
             'super_admin' => ['name' => 'super_admin', 'display_name' => 'Quan tri cao cap', 'description' => 'Toan quyen he thong'],
             'editor' => ['name' => 'editor', 'display_name' => 'Bien tap vien', 'description' => 'Quan ly bai viet, tags, duyet bai'],
+            'seo' => ['name' => 'seo', 'display_name' => 'Chuyen vien SEO', 'description' => 'Toi uu SEO bai viet, trang va tags'],
             'writer' => ['name' => 'writer', 'display_name' => 'Phong vien', 'description' => 'Tao va chinh sua bai viet'],
             'moderator' => ['name' => 'moderator', 'display_name' => 'Kiem duyet vien', 'description' => 'Quan ly binh luan, lien he'],
             'viewer' => ['name' => 'viewer', 'display_name' => 'Nguoi xem', 'description' => 'Chi xem'],
@@ -103,19 +108,23 @@ class RBACSeeder extends Seeder
         $rolePermissions = [
             'super_admin' => array_keys($permissionIds),
             'editor' => [
-                'news.list', 'news.create', 'news.edit', 'news.approve', 'news.preview',
+                'news.list', 'news.create', 'news.edit', 'news.edit_all', 'news.delete', 'news.approve', 'news.preview',
                 'category.list', 'category.create', 'category.edit',
-                'tag.list', 'tag.create', 'tag.edit',
+                'tag.list', 'tag.create', 'tag.edit', 'tag.delete',
                 'author.list',
-                'contact.list', 'contact.reply',
                 'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
-                'slider.manage', 'ads.manage', 'social.manage', 'page.manage',
+                'featured.manage', 'ticker.manage', 'social.manage', 'page.manage', 'ai.use',
+            ],
+            'seo' => [
+                'news.list', 'news.create', 'news.edit', 'news.edit_all', 'news.preview',
+                'category.list',
+                'tag.list', 'tag.create', 'tag.edit',
+                'featured.manage', 'social.manage', 'page.manage', 'ai.use',
             ],
             'writer' => [
                 'news.list', 'news.create', 'news.edit', 'news.preview',
                 'category.list',
-                'tag.list',
-                'author.list',
+                'tag.list', 'ai.use',
             ],
             'moderator' => [
                 'comment.list', 'comment.delete', 'comment.hide', 'comment.moderate',
@@ -135,6 +144,8 @@ class RBACSeeder extends Seeder
             if (!$roleId) {
                 continue;
             }
+
+            DB::table('role_permissions')->where('role_id', $roleId)->delete();
 
             foreach ($permissionsForRole as $permissionName) {
                 $permissionId = $permissionIds[$permissionName] ?? null;

@@ -121,7 +121,11 @@ class NewsScheduleController extends Controller
     {
         $news = News::findOrFail($newsId);
         $user = Auth::user();
-        $canManageAll = $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+        $canManageAll = $user && (
+            $user->isAdmin()
+            || $user->hasPermission('news.approve')
+            || $user->hasPermission('news.edit_all')
+        );
 
         if (!$canManageAll && (int) $news->author_id !== (int) Auth::id()) {
             return back()->with([
@@ -155,7 +159,11 @@ class NewsScheduleController extends Controller
     public function drafts(Request $request)
     {
         $user = Auth::user();
-        $canReviewAll = $user && ($user->isAdmin() || $user->hasPermission('news.approve'));
+        $canReviewAll = $user && (
+            $user->isAdmin()
+            || $user->hasPermission('news.approve')
+            || $user->hasPermission('news.edit_all')
+        );
 
         $scheduleLatest = DB::table('news_schedules')
             ->select('news_id', DB::raw('MAX(id) as last_id'))

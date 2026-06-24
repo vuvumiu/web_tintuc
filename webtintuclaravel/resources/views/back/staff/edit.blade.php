@@ -69,6 +69,36 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Vai trò và phạm vi quyền <span class="text-red">*</span></label>
+                    @if(Auth::user()->isAdmin())
+                        @php
+                            $activeRoleIds = array_map('intval', old('role_ids', $selectedRoleIds ?? []));
+                        @endphp
+                        <div class="row">
+                            @foreach($roles as $role)
+                                @continue($role->name === 'super_admin' && (int) $User->level !== 1)
+                                <div class="col-md-4 mb-2">
+                                    <label class="d-flex align-items-start p-3"
+                                           style="gap:10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-soft);cursor:pointer;">
+                                        <input type="checkbox" name="role_ids[]" value="{{ $role->id }}"
+                                               style="margin-top:3px;"
+                                               {{ in_array((int) $role->id, $activeRoleIds, true) ? 'checked' : '' }}>
+                                        <span>
+                                            <strong style="display:block;color:var(--text-primary);">{{ $role->display_name }}</strong>
+                                            <small class="text-muted">{{ $role->description ?: 'Quyền theo vai trò hệ thống.' }}</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                        <small class="text-muted">SEO được sửa mọi bài để tối ưu metadata nhưng không có quyền duyệt hoặc xóa bài. Phóng viên chỉ quản lý bài của mình.</small>
+                    @else
+                        <input type="text" class="form-control"
+                               value="{{ $User->roles->pluck('display_name')->implode(', ') ?: 'Chưa gán vai trò' }}" disabled>
+                    @endif
+                </div>
+
+                <div class="form-group">
                     <label for="fullname">Ho va ten <span class="text-red">*</span></label>
                     <input type="text" class="form-control" name="fullname" value="{{ $User->fullname ?? '' }}">
                 </div>

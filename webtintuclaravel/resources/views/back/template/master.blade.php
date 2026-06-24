@@ -202,10 +202,12 @@
                     <span>Xem website</span>
                 </a>
 
-                <a class="btn btn-primary topbar-action topbar-action-primary" href="{{ url('admin/news/add') }}">
-                    <i class="fas fa-plus"></i>
-                    <span>Thêm bài viết</span>
-                </a>
+                @if($user?->hasPermission('news.create'))
+                    <a class="btn btn-primary topbar-action topbar-action-primary" href="{{ url('admin/news/add') }}">
+                        <i class="fas fa-plus"></i>
+                        <span>Thêm bài viết</span>
+                    </a>
+                @endif
 
                 <div class="topbar-dropdown">
                     <button class="user-chip" type="button" data-topbar-toggle="user" aria-label="Tài khoản">

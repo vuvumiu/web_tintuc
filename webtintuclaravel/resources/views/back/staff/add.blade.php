@@ -58,6 +58,32 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Vai trò và phạm vi quyền <span class="text-red">*</span></label>
+                    @if(Auth::user()->isAdmin())
+                        <div class="row">
+                            @foreach($roles as $role)
+                                @continue($role->name === 'super_admin')
+                                <div class="col-md-4 mb-2">
+                                    <label class="d-flex align-items-start p-3"
+                                           style="gap:10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-soft);cursor:pointer;">
+                                        <input type="checkbox" name="role_ids[]" value="{{ $role->id }}"
+                                               style="margin-top:3px;"
+                                               {{ in_array($role->id, array_map('intval', old('role_ids', [])), true) ? 'checked' : '' }}>
+                                        <span>
+                                            <strong style="display:block;color:var(--text-primary);">{{ $role->display_name }}</strong>
+                                            <small class="text-muted">{{ $role->description ?: 'Quyền theo vai trò hệ thống.' }}</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                        <small class="text-muted">Tác giả chưa chọn vai trò sẽ tự nhận quyền Phóng viên. Không cấp Quản trị cao cấp cho tài khoản nhân viên.</small>
+                    @else
+                        <div class="alert alert-info mb-0">Hệ thống tự gán vai trò Phóng viên cho tác giả và Người xem cho nhân viên khác.</div>
+                    @endif
+                </div>
+
+                <div class="form-group">
                     <label for="fullname">Ho va ten <span class="text-red">*</span></label>
                     <input type="text" class="form-control" name="fullname" placeholder="Nhap ho va ten day du" value="{{ old('fullname') }}">
                 </div>

@@ -145,6 +145,10 @@ class AppServiceProvider extends ServiceProvider
             /** @var User $user */
             $user = auth()->user();
             $displayName = $user->fullname ?: $user->username;
+            $roleLabel = $user->isAdmin()
+                ? 'Quản trị viên'
+                : ($user->roles()->orderBy('display_name')->value('display_name')
+                    ?: ($user->isAuthor() ? 'Tác giả' : 'Nhân viên'));
 
             $systemSettings = System::query()
                 ->whereIn('Code', ['name', 'logo_text', 'logo', 'logo_type', 'favicon'])
@@ -211,7 +215,7 @@ class AppServiceProvider extends ServiceProvider
                     'name' => $displayName,
                     'email' => $user->email,
                     'initial' => $user->initials ?? strtoupper(substr($displayName, 0, 1)),
-                    'role_label' => $user->isAdmin() ? 'Quản trị viên' : ($user->isStaff() ? 'Nhân viên' : 'Tác giả'),
+                    'role_label' => $roleLabel,
                     'is_admin' => $user->isAdmin(),
                 ],
                 'notifications' => Notification::query()
